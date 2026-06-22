@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Menü çubuğu için tek renk silüet (macOS template image: siyah + alfa) -->
+  <!-- Askı ipi halkası -->
+  <ellipse cx="440" cy="322" rx="44" ry="52" fill="none" stroke="#000000" stroke-width="34"/>
+  <!-- Swing-tag gövdesi (delik evenodd ile boşaltılır) -->
+  <path fill-rule="evenodd" clip-rule="evenodd"
+    d="M 452 330 L 626 330 A 26 26 0 0 1 652 356 L 652 668 A 26 26 0 0 1 626 694 L 398 694 A 26 26 0 0 1 372 668 L 372 410 Z
+       M 424 398 m -22 0 a 22 22 0 1 0 44 0 a 22 22 0 1 0 -44 0 Z"
+    fill="#000000"/>
+</svg>

@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# App data & secrets
+/data
+*.db
+*.db-*
+.env.local
+
+# Electron build output
+/dist-electron
+/release
+/resources/icon.iconset

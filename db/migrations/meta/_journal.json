@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1782037490567,
+      "tag": "0000_worried_veda",
+      "breakpoints": true
+    }
+  ]
+}

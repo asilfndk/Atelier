@@ -1,26 +1,57 @@
 {
   "name": "inditex-tracker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
+  "description": "Zara, Bershka, Pull&Bear ve Stradivarius için stok & fiyat takip uygulaması",
+  "author": "Inditex Tracker",
+  "productName": "Atelier",
+  "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "concurrently -k -n NEXT,ELECTRON -c green,blue \"npm:dev:next\" \"npm:dev:electron\"",
+    "dev:next": "next dev",
+    "dev:electron": "node scripts/build-electron.mjs && wait-on http://localhost:3000 dist-electron/main.js && cross-env NODE_ENV=development electron .",
+    "build:next": "next build",
+    "build:electron": "node scripts/build-electron.mjs",
+    "build": "npm run build:next && npm run build:electron",
+    "dist": "npm run build && cross-env NODE_OPTIONS=--experimental-require-module electron-builder --mac",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "gen:icons": "node scripts/gen-icons.mjs",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.2",
+    "framer-motion": "^12.40.0",
+    "lucide-react": "^1.21.0",
     "next": "16.2.9",
+    "node-cron": "^3.0.3",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
     "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
+    "@types/node-cron": "^3.0.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.3",
+    "cross-env": "^10.1.0",
+    "drizzle-kit": "^0.31.10",
+    "electron": "^41.7.1",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wait-on": "^9.0.10"
   }
 }

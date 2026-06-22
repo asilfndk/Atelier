@@ -1,0 +1,38 @@
+import { BaseScraper } from "./base";
+import { JSONLD_PAGE_SCRIPT } from "./page-script";
+import type { ParsedProduct, ProductStock } from "./types";
+
+/** Stradivarius: https://www.stradivarius.com/tr/...-c0p123456789.html */
+export class StradivariusScraper extends BaseScraper {
+  readonly brand = "stradivarius" as const;
+
+  canHandle(url: string): boolean {
+    try {
+      return new URL(url).hostname.includes("stradivarius.com");
+    } catch {
+      return false;
+    }
+  }
+
+  parseUrl(url: string): ParsedProduct | null {
+    try {
+      const u = new URL(url);
+      const m = u.pathname.match(/[lp](\d+)(?:\.html)?$/i);
+      if (!m) return null;
+      const parts = u.pathname.split("/").filter(Boolean);
+      const locale = parts[0];
+      return { brand: this.brand, productId: m[1], locale, url };
+    } catch {
+      return null;
+    }
+  }
+
+  async fetchFromApi(parsed: ParsedProduct): Promise<ProductStock | null> {
+    void parsed;
+    return null;
+  }
+
+  pageScript(): string {
+    return JSONLD_PAGE_SCRIPT;
+  }
+}

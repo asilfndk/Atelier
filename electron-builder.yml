@@ -1,0 +1,43 @@
+appId: com.atelier.inditex-tracker
+productName: Atelier
+copyright: © Atelier
+
+directories:
+  output: release
+  buildResources: resources
+
+# Pakete girecek dosyalar (renderer export + electron bundle + bağımlılıklar)
+files:
+  - dist-electron/**/*
+  - out/**/*
+  - package.json
+
+# Migration klasörünü + runtime ikonları .app içinde Resources altına kopyala
+# (db-init.ts ve tray.ts/main.ts process.resourcesPath altında arar)
+extraResources:
+  - from: db/migrations
+    to: db/migrations
+  - from: resources/trayTemplate.png
+    to: trayTemplate.png
+  - from: resources/trayTemplate@2x.png
+    to: trayTemplate@2x.png
+  - from: resources/icon.png
+    to: icon.png
+
+asar: true
+# Native modül (.node) asar dışına çıkarılmalı ki yüklenebilsin
+asarUnpack:
+  - "**/node_modules/better-sqlite3/**"
+
+mac:
+  icon: resources/icon.icns
+  target:
+    - target: dmg
+      arch:
+        - arm64
+  category: public.app-category.lifestyle
+  # İmzasız kişisel dağıtım (Apple Developer hesabı gerektirmez)
+  identity: null
+
+# better-sqlite3'ü hedef Electron ABI'sine yeniden derle
+npmRebuild: true

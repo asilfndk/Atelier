@@ -1,65 +1,181 @@
-import Image from "next/image";
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { AlertCircle, RefreshCw, Settings2 } from "lucide-react";
+import { CheckBar } from "@/components/CheckBar";
+import { ProductResult } from "@/components/ProductResult";
+import { SettingsPanel } from "@/components/SettingsPanel";
+import { Watchlist } from "@/components/Watchlist";
+import { getApi, hasApi } from "@/lib/client-api";
+import { BRAND_LABELS } from "@/lib/brands";
+import { cn } from "@/lib/cn";
+import type { ScrapeResult, TrackedProduct } from "@/types/global";
 
 export default function Home() {
+  const [products, setProducts] = useState<TrackedProduct[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<ScrapeResult | null>(null);
+  const [currentUrl, setCurrentUrl] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [checkingAll, setCheckingAll] = useState(false);
+  // CheckBar kontrolsüz input'unu remount ederek temizlemek için artan anahtar.
+  const [checkBarKey, setCheckBarKey] = useState(0);
+
+  const refresh = useCallback(async () => {
+    if (!hasApi()) return;
+    setProducts(await getApi().listProducts());
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    if (!hasApi()) return;
+    // Arka plan kontrolü listeyi değiştirince otomatik yenile.
+    const off = getApi().onProductsChanged(refresh);
+    return off;
+  }, [refresh]);
+
+  async function checkAllNow() {
+    if (!hasApi()) return;
+    setCheckingAll(true);
+    try {
+      await getApi().checkNow();
+      await refresh();
+    } finally {
+      setCheckingAll(false);
+    }
+  }
+
+  async function check(url: string) {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setCurrentUrl(url);
+    try {
+      const res = await getApi().checkUrl(url);
+      setResult(res);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Kontrol başarısız oldu.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Takibe alındıktan sonra sağ paneli ve link input'unu temizle.
+  function clearResult() {
+    setResult(null);
+    setCurrentUrl("");
+    setError(null);
+    setCheckBarKey((k) => k + 1);
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="flex h-screen overflow-hidden">
+      {/* Sidebar — izleme listesi */}
+      <aside className="flex w-72 shrink-0 flex-col border-r border-hairline bg-paper">
+        <div className="drag-region flex h-20 items-end px-4 pb-2">
+          <h1 className="font-display text-lg font-semibold tracking-tight text-ink">
+            Atelier
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="flex items-center justify-between border-b border-hairline px-4 pb-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
+            İzleme Listesi · {products.length}
+          </p>
+          <div className="no-drag flex items-center gap-1">
+            <button
+              type="button"
+              onClick={checkAllNow}
+              disabled={checkingAll || products.length === 0}
+              aria-label="Şimdi kontrol et"
+              title="Şimdi kontrol et"
+              className="text-muted transition-colors hover:text-ink disabled:opacity-40"
+            >
+              <RefreshCw
+                className={cn("h-3.5 w-3.5", checkingAll && "animate-spin")}
+              />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Ayarlar"
+              title="Ayarlar"
+              className="text-muted transition-colors hover:text-ink"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <Watchlist
+            products={products}
+            onChange={refresh}
+            onSelect={check}
+          />
+        </div>
+        <footer className="border-t border-hairline px-4 py-3">
+          <div className="flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-muted">
+            {Object.values(BRAND_LABELS).map((b) => (
+              <span key={b}>{b}</span>
+            ))}
+          </div>
+        </footer>
+      </aside>
+
+      {/* Ana panel */}
+      <main className="flex flex-1 flex-col overflow-hidden">
+        <div className="drag-region h-20 shrink-0" />
+
+        <div className="flex-1 overflow-y-auto px-10 py-2">
+          <div className="mx-auto w-full max-w-2xl">
+            <CheckBar key={checkBarKey} onCheck={check} loading={loading} />
+
+            {error && (
+              <div className="mt-4 flex items-start gap-2 border border-signal/30 bg-signal/5 px-4 py-3 text-sm text-ink">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div className="mt-6">
+              {result ? (
+                <ProductResult
+                  url={currentUrl}
+                  result={result}
+                  onTracked={() => {
+                    refresh();
+                    clearResult();
+                  }}
+                />
+              ) : (
+                !error && !loading && <EmptyState />
+              )}
+            </div>
+          </div>
         </div>
       </main>
+
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="select-none pb-16 pt-8">
+      <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted">
+        Inditex stok &amp; fiyat takibi
+      </p>
+      <h2 className="mt-3 max-w-md font-display text-4xl font-light leading-[1.1] tracking-tight text-ink">
+        Bir bedenin{" "}
+        <span className="font-semibold italic text-signal">geri gelmesini</span>{" "}
+        ya da fiyatın düşmesini bekleme.
+      </h2>
+      <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-soft">
+        Zara, Bershka veya Stradivarius'tan bir ürün bağlantısı
+        yapıştır. Stok durumunu anında gör, takibe al; gerisini Atelier arka
+        planda halleder.
+      </p>
     </div>
   );
 }
