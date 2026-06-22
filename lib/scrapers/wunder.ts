@@ -1,5 +1,5 @@
 import { BaseScraper } from "./base";
-import { GENERIC_PAGE_SCRIPT } from "./page-script";
+import { WUNDER_PAGE_SCRIPT } from "./page-script";
 import type { ParsedProduct, ProductStock } from "./types";
 
 /** Wunder: https://wunder.com.tr/classic-england-polo-white-ubmw0502fa328-wth0001 */
@@ -31,6 +31,6 @@ export class WunderScraper extends BaseScraper {
   }
 
   pageScript(): string {
-    return GENERIC_PAGE_SCRIPT;
+    return WUNDER_PAGE_SCRIPT;
   }
 }

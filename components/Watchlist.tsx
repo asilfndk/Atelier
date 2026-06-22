@@ -23,7 +23,7 @@ export function Watchlist({ products, onChange, onSelect }: Props) {
     return (
       <p className="px-4 py-6 font-mono text-xs leading-relaxed text-muted">
         Henüz takip yok. Bir ürün bağlantısı yapıştırıp{" "}
-        <span className="text-ink-soft">Takibe Al</span>'a bas.
+        <span className="text-ink-soft">Takibe Al</span>&apos;a bas.
       </p>
     );
   }
@@ -40,11 +40,12 @@ export function Watchlist({ products, onChange, onSelect }: Props) {
             onClick={() => onSelect(p.url)}
             className="no-drag block w-full text-left"
           >
-            <div className="flex items-center justify-between gap-2">
+            {/* Durum noktası solda — sağ-üst köşe hover'daki çöp butonuna kalır. */}
+            <div className="flex items-center gap-1.5 pr-5">
+              <StockDot inStock={p.lastInStock} />
               <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
                 {BRAND_LABELS[p.brand]}
               </span>
-              <StockDot inStock={p.lastInStock} />
             </div>
             <p className="mt-1 truncate text-sm font-medium text-ink">
               {p.name ?? "İsimsiz ürün"}
@@ -78,8 +79,8 @@ function StockDot({ inStock }: { inStock: boolean | null }) {
     <span
       title={inStock ? "Stokta" : inStock === false ? "Tükendi" : "Bilinmiyor"}
       className={cn(
-        "h-1.5 w-1.5 rounded-full",
-        inStock ? "bg-in-stock" : inStock === false ? "bg-out-stock" : "bg-hairline",
+        "h-1.5 w-1.5 shrink-0 rounded-full",
+        inStock ? "bg-in-stock" : inStock === false ? "bg-signal" : "bg-hairline",
       )}
     />
   );

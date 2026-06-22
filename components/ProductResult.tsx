@@ -69,7 +69,7 @@ export function ProductResult({ url, result, onTracked }: Props) {
           <span
             className={cn(
               "inline-flex h-1.5 w-1.5 rounded-full",
-              result.inStock ? "bg-in-stock" : "bg-out-stock",
+              result.inStock ? "bg-in-stock" : "bg-signal",
             )}
           />
           {result.inStock ? "Stokta" : "Tükendi"}

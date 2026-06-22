@@ -4,7 +4,8 @@ import { Notification, app, shell } from "electron";
 
 function notify(title: string, body: string, url?: string): void {
   if (!Notification.isSupported()) return;
-  const n = new Notification({ title, body, silent: false });
+  // macOS'ta açık bir sistem sesi ver (yalnızca silent:false her zaman çalmıyor).
+  const n = new Notification({ title, body, silent: false, sound: "Glass" });
   if (url) {
     n.on("click", () => {
       shell.openExternal(url);

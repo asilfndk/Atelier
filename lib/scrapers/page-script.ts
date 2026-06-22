@@ -378,3 +378,32 @@ const BOYNER_SIZE_BLOCK = `
 `;
 
 export const BOYNER_PAGE_SCRIPT = STORE_CORE_SCRIPT + BOYNER_SIZE_BLOCK + "\n  return out;\n";
+
+/**
+ * Wunder (Ikas) beden bloğu: `.variant-types` öğeleri; beden metni `.variant-name`.
+ * Tükenmiş beden `cursor-not-allowed pointer-events-none` class'ı taşır ve
+ * `.variant-name` üzerinde `disabled` olur. Tükenmiş bedenler de listelenir
+ * (`inStock:false`) ki kullanıcı stok gelince bildirim için takip edebilsin.
+ * (Genel script burada bir thumbnail/slider şeridini `1 2 3 4 5` diye yanlış
+ * yakalıyordu — bu yüzden marka-özel.)
+ */
+const WUNDER_SIZE_BLOCK = `
+  try {
+    const seen = new Set();
+    const domSizes = [];
+    document.querySelectorAll('.variant-types').forEach((v) => {
+      const nameEl = v.querySelector('.variant-name');
+      const label = ((nameEl ? nameEl.textContent : v.textContent) || '').trim();
+      if (!label || seen.has(label)) return;
+      seen.add(label);
+      const cls = (v.className || '').toString();
+      const nameCls = ((nameEl && nameEl.className) || '').toString();
+      const inStock = !/cursor-not-allowed|pointer-events-none|disabled|passive/i.test(cls)
+        && !/disabled/i.test(nameCls);
+      domSizes.push({ label, inStock });
+    });
+    if (domSizes.length) { out.sizes = domSizes; if (!out.inStock) out.inStock = domSizes.some((s) => s.inStock); }
+  } catch (e) {}
+`;
+
+export const WUNDER_PAGE_SCRIPT = STORE_CORE_SCRIPT + WUNDER_SIZE_BLOCK + "\n  return out;\n";
