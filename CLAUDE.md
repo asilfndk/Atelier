@@ -33,7 +33,8 @@ kontrol yapar. Beden/renk bazlı filtreleme desteklenir.
 |---|---|
 | `npm run dev` | Next dev (3000) + electron'u birlikte başlatır (`concurrently`) |
 | `npm run build` | `build:next` (→ `out/`) + `build:electron` (→ `dist-electron/`) |
-| `npm run dist` | macOS `.app`/`.dmg` paketle (`electron-builder --mac`) |
+| `npm run dist` | macOS `.dmg` paketle — **arm64 + x64 ayrı ayrı** (`electron-builder --mac`) |
+| `npm run dist:arm64` / `npm run dist:x64` | Tek mimari `.dmg` paketle (hızlı/izole build) |
 | `npm run rebuild` | `better-sqlite3`'ü Electron ABI'sine göre yeniden derle (native hata alınca) |
 | `npm run lint` | ESLint |
 | `npm run db:generate` | Drizzle migration üret (şema değişince) |

@@ -38,10 +38,13 @@ mac:
   # Menü-bar (agent) uygulaması: Dock'ta ve Cmd+Tab'da görünme.
   extendInfo:
     LSUIElement: 1
+  # Her iki .dmg adında da mimari görünsün (x64 varsayılan kabul edilip ek atlanmasın)
+  artifactName: ${productName}-${version}-${arch}.dmg
   target:
     - target: dmg
       arch:
         - arm64
+        - x64
   category: public.app-category.lifestyle
   # İmzasız kişisel dağıtım (Apple Developer hesabı gerektirmez)
   identity: null
