@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, Check, ExternalLink, Tag } from "lucide-react";
+import { Bell, Check, ExternalLink, Loader2, Tag } from "lucide-react";
 import { getApi } from "@/lib/client-api";
 import { formatPrice } from "@/lib/brands";
 import { cn } from "@/lib/cn";
@@ -12,15 +12,30 @@ interface Props {
   url: string;
   result: ScrapeResult;
   onTracked: () => void;
+  /** Önbellek görünümü arka planda tazelenirken true (küçük rozet gösterilir). */
+  refreshing?: boolean;
+  /** İzleme listesinden açılınca hedef beden/renk ön-seçili gelir. */
+  initialSize?: string | null;
+  initialColor?: string | null;
+  /** Ürün zaten takipte — "Takibe Al" yerine "Zaten takipte" gösterilir. */
+  alreadyTracked?: boolean;
 }
 
-export function ProductResult({ url, result, onTracked }: Props) {
-  const [size, setSize] = useState<string | null>(null);
+export function ProductResult({
+  url,
+  result,
+  onTracked,
+  refreshing = false,
+  initialSize = null,
+  initialColor = null,
+  alreadyTracked = false,
+}: Props) {
+  const [size, setSize] = useState<string | null>(initialSize);
   const [color, setColor] = useState<string | null>(
-    result.colors[0] ?? null,
+    initialColor ?? result.colors[0] ?? null,
   );
   const [notifyStock, setNotifyStock] = useState(true);
-  const [notifyPrice, setNotifyPrice] = useState(false);
+  const [notifyPrice, setNotifyPrice] = useState(true);
   const [tracking, setTracking] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -46,6 +61,8 @@ export function ProductResult({ url, result, onTracked }: Props) {
         trackPrice: notifyPrice,
         lastPrice: result.price,
         lastInStock: effectiveInStock,
+        sizes: result.sizes,
+        colors: result.colors,
       });
       setDone(true);
       onTracked();
@@ -83,7 +100,19 @@ export function ProductResult({ url, result, onTracked }: Props) {
           />
           {result.inStock ? "Stokta" : "Tükendi"}
           <span className="text-hairline">·</span>
-          <span>{result.source === "api" ? "API" : "Tarayıcı"}</span>
+          <span>
+            {result.source === "api"
+              ? "API"
+              : result.source === "browser"
+                ? "Tarayıcı"
+                : "Önbellek"}
+          </span>
+          {refreshing && (
+            <span className="flex items-center gap-1 text-ink-soft">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              yenileniyor…
+            </span>
+          )}
         </div>
 
         <h2 className="mt-2 font-display text-2xl font-semibold leading-tight tracking-tight text-ink">
@@ -120,12 +149,27 @@ export function ProductResult({ url, result, onTracked }: Props) {
           </div>
         )}
 
-        {/* Beden matrisi */}
+        {/* Beden matrisi — önbellekte snapshot yoksa skeleton */}
         <div className="mt-5">
           <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
             Beden{size ? ` · ${size}` : ""}
           </p>
-          <StockMatrix sizes={result.sizes} selected={size} onSelect={setSize} />
+          {result.sizes.length === 0 && result.source === "cache" ? (
+            <div className="flex flex-wrap gap-1.5">
+              {[0, 1, 2, 3].map((i) => (
+                <span
+                  key={i}
+                  className="h-8 w-12 animate-pulse border border-hairline bg-paper"
+                />
+              ))}
+            </div>
+          ) : (
+            <StockMatrix
+              sizes={result.sizes}
+              selected={size}
+              onSelect={setSize}
+            />
+          )}
         </div>
 
         {/* Bildirim seçenekleri */}
@@ -149,21 +193,30 @@ export function ProductResult({ url, result, onTracked }: Props) {
           <button
             type="button"
             onClick={track}
-            disabled={tracking || done || (!notifyStock && !notifyPrice)}
+            disabled={
+              alreadyTracked ||
+              tracking ||
+              done ||
+              (!notifyStock && !notifyPrice)
+            }
             className={cn(
               "no-drag flex h-10 items-center gap-2 px-5 text-sm font-medium transition-all",
-              done
+              done || alreadyTracked
                 ? "bg-in-stock text-white"
                 : "bg-ink text-paper-raised hover:brightness-110",
               "disabled:cursor-not-allowed disabled:opacity-50",
             )}
           >
-            {done ? (
+            {done || alreadyTracked ? (
               <Check className="h-4 w-4" />
             ) : (
               <Bell className="h-4 w-4" />
             )}
-            {done ? "Takibe alındı" : "Takibe Al"}
+            {alreadyTracked
+              ? "Zaten takipte"
+              : done
+                ? "Takibe alındı"
+                : "Takibe Al"}
           </button>
           <button
             type="button"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Tag, Trash2 } from "lucide-react";
 import { getApi } from "@/lib/client-api";
 import { BRAND_LABELS, formatPrice, timeAgo } from "@/lib/brands";
 import { cn } from "@/lib/cn";
@@ -11,7 +11,7 @@ interface Props {
   products: TrackedProduct[];
   onChange: () => void;
   /** Ürüne tıklayınca sağ panelde göstermek için (tarayıcı açmaz). */
-  onSelect: (url: string) => void;
+  onSelect: (product: TrackedProduct) => void;
 }
 
 export function Watchlist({ products, onChange, onSelect }: Props) {
@@ -24,6 +24,11 @@ export function Watchlist({ products, onChange, onSelect }: Props) {
 
   async function remove(id: number) {
     await getApi().untrack(id);
+    onChange();
+  }
+
+  async function togglePriceTracking(p: TrackedProduct) {
+    await getApi().updateProduct(p.id, { trackPrice: !p.trackPrice });
     onChange();
   }
 
@@ -45,7 +50,7 @@ export function Watchlist({ products, onChange, onSelect }: Props) {
         >
           <button
             type="button"
-            onClick={() => onSelect(p.url)}
+            onClick={() => onSelect(p)}
             className="no-drag block w-full text-left"
           >
             {/* Durum noktası solda — sağ-üst köşe hover'daki çöp butonuna kalır. */}
@@ -67,6 +72,22 @@ export function Watchlist({ products, onChange, onSelect }: Props) {
               )}
               <span className="ml-auto">{timeAgo(p.lastCheckedAt)}</span>
             </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => togglePriceTracking(p)}
+            aria-label={
+              p.trackPrice ? "Fiyat takibini kapat" : "Fiyat takibini aç"
+            }
+            title={p.trackPrice ? "Fiyat takibi açık" : "Fiyat takibi kapalı"}
+            className={cn(
+              "no-drag absolute right-8 top-3 transition-colors",
+              p.trackPrice
+                ? "block text-price-drop"
+                : "hidden text-muted hover:text-ink group-hover:block",
+            )}
+          >
+            <Tag className="h-3.5 w-3.5" />
           </button>
           <button
             type="button"

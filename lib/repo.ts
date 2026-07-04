@@ -31,6 +31,9 @@ export interface TrackInput {
   trackPrice?: boolean;
   lastPrice?: number | null;
   lastInStock?: boolean | null;
+  /** Takip anındaki beden/renk anlık görüntüsü (anında görünüm için) */
+  sizes?: { label: string; inStock: boolean }[] | null;
+  colors?: string[] | null;
 }
 
 /**
@@ -60,12 +63,31 @@ export function trackProduct(input: TrackInput): TrackedProduct {
     targetSize: input.targetSize ?? null,
     targetColor: input.targetColor ?? null,
     trackStock: input.trackStock ?? true,
-    trackPrice: input.trackPrice ?? false,
+    trackPrice: input.trackPrice ?? true,
     lastPrice: input.lastPrice ?? null,
     lastInStock: input.lastInStock ?? null,
+    // Fiyat düşüş baseline'ı: takip anındaki fiyattan başlar.
+    lowestPrice: input.lastPrice ?? null,
+    lastSizes: input.sizes ? JSON.stringify(input.sizes) : null,
+    lastColors: input.colors ? JSON.stringify(input.colors) : null,
     lastCheckedAt: new Date(),
   };
   return db.insert(trackedProducts).values(row).returning().get();
+}
+
+/** Ürün alanlarını kısmi güncelle (fiyat takibi aç/kapa, lowestPrice bakımı). */
+export function updateProduct(
+  id: number,
+  patch: Partial<
+    Pick<TrackedProduct, "trackStock" | "trackPrice" | "lowestPrice">
+  >,
+): TrackedProduct {
+  return db
+    .update(trackedProducts)
+    .set(patch)
+    .where(eq(trackedProducts.id, id))
+    .returning()
+    .get();
 }
 
 export function untrackProduct(id: number): void {
@@ -77,12 +99,20 @@ export function recordCheck(
   id: number,
   inStock: boolean,
   price: number | null,
+  sizes?: { label: string; inStock: boolean }[] | null,
+  colors?: string[] | null,
 ): void {
   db.insert(checkHistory).values({ productId: id, inStock, price }).run();
-  db.update(trackedProducts)
-    .set({ lastInStock: inStock, lastPrice: price, lastCheckedAt: new Date() })
-    .where(eq(trackedProducts.id, id))
-    .run();
+  // price null ise lastPrice'a dokunma: bozuk bir scrape son bilinen iyi
+  // fiyatı (ve fiyat düşüş karşılaştırmasını) silmesin.
+  const patch: Partial<TrackedProduct> = {
+    lastInStock: inStock,
+    lastCheckedAt: new Date(),
+  };
+  if (price != null) patch.lastPrice = price;
+  if (sizes && sizes.length > 0) patch.lastSizes = JSON.stringify(sizes);
+  if (colors && colors.length > 0) patch.lastColors = JSON.stringify(colors);
+  db.update(trackedProducts).set(patch).where(eq(trackedProducts.id, id)).run();
 }
 
 export function priceHistory(id: number, limit = 50) {

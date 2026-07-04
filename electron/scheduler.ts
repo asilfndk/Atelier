@@ -4,6 +4,7 @@ import {
   getSettings,
   listProducts,
   recordCheck,
+  updateProduct,
 } from "@/lib/repo";
 import type { ScrapeResult } from "@/lib/scrapers";
 import type { TrackedProduct } from "@/db/schema";
@@ -45,18 +46,26 @@ async function checkOne(p: TrackedProduct): Promise<void> {
     notifyRestock(p.name ?? "Ürün", p.url, p.targetSize);
   }
 
-  // Fiyat düşüşü
-  if (
-    s.notifyPrice &&
-    p.trackPrice &&
-    p.lastPrice != null &&
-    res.price != null &&
-    res.price < p.lastPrice
-  ) {
-    notifyPriceDrop(p.name ?? "Ürün", p.url, p.lastPrice, res.price);
+  // Fiyat düşüşü: baseline = görülen en düşük fiyat (kademeli düşüşler kaçmaz).
+  // Fiyat sonradan yükselir ve tekrar en düşüğün üstünde bir seviyeye inerse
+  // bildirim gelmez — bilinçli tasarım.
+  if (res.price != null) {
+    const baseline = p.lowestPrice ?? p.lastPrice; // eski kayıtlar için ilk kontrolde backfill
+    if (
+      s.notifyPrice &&
+      p.trackPrice &&
+      baseline != null &&
+      res.price < baseline
+    ) {
+      notifyPriceDrop(p.name ?? "Ürün", p.url, baseline, res.price);
+    }
+    // Baseline bakımı bildirim anahtarlarından bağımsız — hep doğru kalsın.
+    if (baseline == null || res.price < baseline) {
+      updateProduct(p.id, { lowestPrice: res.price });
+    }
   }
 
-  recordCheck(p.id, nowInStock, res.price);
+  recordCheck(p.id, nowInStock, res.price, res.sizes, res.colors);
 }
 
 /** Tüm takip listesini sırayla kontrol et (browser eşzamanlılığı zaten sınırlı). */

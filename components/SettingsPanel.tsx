@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { getApi } from "@/lib/client-api";
 import { cn } from "@/lib/cn";
-import type { AppSettings } from "@/types/global";
+import type { AppSettings, UpdateState } from "@/types/global";
 
 const INTERVALS: { label: string; cron: string }[] = [
   { label: "5 dk", cron: "*/5 * * * *" },
@@ -15,9 +15,16 @@ const INTERVALS: { label: string; cron: string }[] = [
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const [s, setS] = useState<AppSettings | null>(null);
+  const [version, setVersion] = useState("");
+  const [update, setUpdate] = useState<UpdateState | null>(null);
 
   useEffect(() => {
     getApi().getSettings().then(setS);
+    getApi().getAppVersion().then(setVersion);
+    // Açılıştaki sessiz denetimin sonucu da dahil mevcut durumu al,
+    // sonra canlı durum değişikliklerine abone ol.
+    getApi().getUpdateState().then(setUpdate);
+    return getApi().onUpdateState(setUpdate);
   }, []);
 
   async function patch(p: Partial<Omit<AppSettings, "id">>) {
@@ -89,6 +96,80 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             onChange={(v) => patch({ autolaunch: v })}
           />
         </Section>
+
+        <Section label="Güncelleme">
+          <UpdateRow version={version} update={update} />
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+function UpdateRow({
+  version,
+  update,
+}: {
+  version: string;
+  update: UpdateState | null;
+}) {
+  const status = update?.status ?? "idle";
+  const busy = status === "checking" || status === "downloading";
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between text-sm text-ink">
+        <span>Atelier v{version}</span>
+        {status === "up-to-date" && (
+          <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted">
+            Güncel
+          </span>
+        )}
+        {status === "available" && (
+          <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-price-drop">
+            v{update?.latestVersion} mevcut
+          </span>
+        )}
+      </div>
+
+      {status === "error" && (
+        <p className="text-xs text-signal">{update?.error}</p>
+      )}
+      {status === "downloaded" && (
+        <p className="text-xs text-ink-soft">
+          DMG açıldı — Atelier&apos;i Applications klasörüne sürükleyin.
+        </p>
+      )}
+
+      <div className="flex items-center gap-2">
+        {status === "available" || status === "downloading" ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => getApi().downloadUpdate()}
+            className="flex items-center gap-2 self-start border border-hairline px-3 py-1.5 text-xs text-ink-soft transition-colors hover:border-ink disabled:opacity-50"
+          >
+            {status === "downloading" && (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            )}
+            {status === "downloading"
+              ? `%${update?.percent ?? 0} indiriliyor…`
+              : `v${update?.latestVersion} indir`}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => getApi().checkForUpdate()}
+            className="flex items-center gap-2 self-start border border-hairline px-3 py-1.5 text-xs text-ink-soft transition-colors hover:border-ink disabled:opacity-50"
+          >
+            {status === "checking" && (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            )}
+            {status === "checking"
+              ? "Denetleniyor…"
+              : "Güncellemeleri denetle"}
+          </button>
+        )}
       </div>
     </div>
   );

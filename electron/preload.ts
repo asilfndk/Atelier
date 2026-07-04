@@ -8,6 +8,8 @@ const api = {
   checkUrl: (url: string) => ipcRenderer.invoke("check-url", url),
   track: (input: unknown) => ipcRenderer.invoke("track", input),
   untrack: (id: number) => ipcRenderer.invoke("untrack", id),
+  updateProduct: (id: number, patch: unknown) =>
+    ipcRenderer.invoke("update-product", id, patch),
   listProducts: () => ipcRenderer.invoke("list-products"),
   priceHistory: (id: number) => ipcRenderer.invoke("price-history", id),
   getSettings: () => ipcRenderer.invoke("get-settings"),
@@ -26,6 +28,16 @@ const api = {
     const handler = () => cb();
     ipcRenderer.on("open-settings", handler);
     return () => ipcRenderer.removeListener("open-settings", handler);
+  },
+  // Güncelleme denetimi.
+  getAppVersion: () => ipcRenderer.invoke("get-app-version"),
+  checkForUpdate: () => ipcRenderer.invoke("update-check"),
+  downloadUpdate: () => ipcRenderer.invoke("update-download"),
+  getUpdateState: () => ipcRenderer.invoke("update-state"),
+  onUpdateState: (cb: (state: unknown) => void) => {
+    const handler = (_e: unknown, state: unknown) => cb(state);
+    ipcRenderer.on("update-state", handler);
+    return () => ipcRenderer.removeListener("update-state", handler);
   },
 };
 

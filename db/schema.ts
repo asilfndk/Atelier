@@ -39,11 +39,17 @@ export const trackedProducts = sqliteTable("tracked_products", {
     .default(true),
   trackPrice: integer("track_price", { mode: "boolean" })
     .notNull()
-    .default(false),
+    .default(true),
 
   // Son bilinen durum
   lastPrice: real("last_price"),
   lastInStock: integer("last_in_stock", { mode: "boolean" }),
+  /** Görülen en düşük fiyat — fiyat düşüş bildirimlerinin baseline'ı */
+  lowestPrice: real("lowest_price"),
+  /** Son kontrolün beden matrisi (JSON SizeAvailability[]) — anında görünüm için */
+  lastSizes: text("last_sizes"),
+  /** Son kontrolün renk listesi (JSON string[]) */
+  lastColors: text("last_colors"),
 
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()

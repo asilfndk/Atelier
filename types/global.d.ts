@@ -27,7 +27,7 @@ export interface ProductStock {
 }
 
 export interface ScrapeResult extends ProductStock {
-  source: "api" | "browser";
+  source: "api" | "browser" | "cache";
 }
 
 export interface TrackedProduct {
@@ -43,6 +43,11 @@ export interface TrackedProduct {
   trackPrice: boolean;
   lastPrice: number | null;
   lastInStock: boolean | null;
+  lowestPrice: number | null;
+  /** JSON SizeAvailability[] — son kontrolün beden matrisi */
+  lastSizes: string | null;
+  /** JSON string[] — son kontrolün renk listesi */
+  lastColors: string | null;
   createdAt: Date;
   lastCheckedAt: Date | null;
 }
@@ -73,12 +78,35 @@ export interface TrackPayload {
   trackPrice?: boolean;
   lastPrice?: number | null;
   lastInStock?: boolean | null;
+  sizes?: SizeAvailability[] | null;
+  colors?: string[] | null;
+}
+
+export type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "downloading"
+  | "downloaded"
+  | "error"
+  | "up-to-date";
+
+export interface UpdateState {
+  status: UpdateStatus;
+  currentVersion: string;
+  latestVersion?: string;
+  percent?: number;
+  error?: string;
 }
 
 export interface InditexApi {
   checkUrl(url: string): Promise<ScrapeResult>;
   track(input: TrackPayload): Promise<TrackedProduct>;
   untrack(id: number): Promise<{ ok: true }>;
+  updateProduct(
+    id: number,
+    patch: Partial<Pick<TrackedProduct, "trackStock" | "trackPrice">>,
+  ): Promise<TrackedProduct>;
   listProducts(): Promise<TrackedProduct[]>;
   priceHistory(id: number): Promise<CheckHistoryRow[]>;
   getSettings(): Promise<AppSettings>;
@@ -88,6 +116,11 @@ export interface InditexApi {
   openExternal(url: string): Promise<{ ok: true }>;
   onProductsChanged(cb: () => void): () => void;
   onOpenSettings(cb: () => void): () => void;
+  getAppVersion(): Promise<string>;
+  checkForUpdate(): Promise<UpdateState>;
+  downloadUpdate(): Promise<UpdateState>;
+  getUpdateState(): Promise<UpdateState>;
+  onUpdateState(cb: (state: UpdateState) => void): () => void;
 }
 
 declare global {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, RefreshCw, Settings2 } from "lucide-react";
 import { CheckBar } from "@/components/CheckBar";
 import { ProductResult } from "@/components/ProductResult";
@@ -9,7 +9,37 @@ import { Watchlist } from "@/components/Watchlist";
 import { getApi, hasApi } from "@/lib/client-api";
 import { BRAND_LABELS } from "@/lib/brands";
 import { cn } from "@/lib/cn";
-import type { ScrapeResult, TrackedProduct } from "@/types/global";
+import type {
+  ScrapeResult,
+  SizeAvailability,
+  TrackedProduct,
+} from "@/types/global";
+
+/** DB'deki son bilinen durumdan anında gösterilecek önbellek sonucu üret. */
+function buildCachedResult(p: TrackedProduct): ScrapeResult {
+  let sizes: SizeAvailability[] = [];
+  let colors: string[] = [];
+  try {
+    sizes = p.lastSizes ? JSON.parse(p.lastSizes) : [];
+  } catch {
+    sizes = [];
+  }
+  try {
+    colors = p.lastColors ? JSON.parse(p.lastColors) : [];
+  } catch {
+    colors = [];
+  }
+  return {
+    name: p.name ?? "İsimsiz ürün",
+    price: p.lastPrice,
+    currency: "TRY",
+    imageUrl: p.imageUrl,
+    colors,
+    sizes,
+    inStock: p.lastInStock ?? false,
+    source: "cache",
+  };
+}
 
 export default function Home() {
   const [products, setProducts] = useState<TrackedProduct[]>([]);
@@ -21,6 +51,11 @@ export default function Home() {
   const [checkingAll, setCheckingAll] = useState(false);
   // CheckBar kontrolsüz input'unu remount ederek temizlemek için artan anahtar.
   const [checkBarKey, setCheckBarKey] = useState(0);
+  // İzleme listesinden seçilen ürün (önbellek görünümü + hedef beden/renk için).
+  const [selected, setSelected] = useState<TrackedProduct | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  // Geç dönen scrape sonuçlarının yeni seçimi ezmemesi için artan jeton.
+  const selectionToken = useRef(0);
 
   const refresh = useCallback(async () => {
     if (!hasApi()) return;
@@ -60,23 +95,54 @@ export default function Home() {
   }
 
   async function check(url: string) {
+    const token = ++selectionToken.current;
     setLoading(true);
     setError(null);
     setResult(null);
+    setSelected(null);
+    setRefreshing(false);
     setCurrentUrl(url);
     try {
       const res = await getApi().checkUrl(url);
-      setResult(res);
+      if (selectionToken.current === token) setResult(res);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Kontrol başarısız oldu.");
+      if (selectionToken.current === token) {
+        setError(e instanceof Error ? e.message : "Kontrol başarısız oldu.");
+      }
     } finally {
-      setLoading(false);
+      if (selectionToken.current === token) setLoading(false);
     }
+  }
+
+  // İzleme listesinden seçim: DB'deki son durum anında gösterilir,
+  // canlı veri arka planda tazelenir (kullanıcı scrape'i beklemez).
+  function selectProduct(p: TrackedProduct) {
+    const token = ++selectionToken.current;
+    setLoading(false);
+    setError(null);
+    setSelected(p);
+    setCurrentUrl(p.url);
+    setResult(buildCachedResult(p));
+    setRefreshing(true);
+    getApi()
+      .checkUrl(p.url)
+      .then((res) => {
+        if (selectionToken.current === token) setResult(res);
+      })
+      .catch(() => {
+        // Canlı kontrol başarısız: önbellek görünümü kalır, panel bozulmaz.
+      })
+      .finally(() => {
+        if (selectionToken.current === token) setRefreshing(false);
+      });
   }
 
   // Takibe alındıktan sonra sağ paneli ve link input'unu temizle.
   function clearResult() {
+    selectionToken.current++;
     setResult(null);
+    setSelected(null);
+    setRefreshing(false);
     setCurrentUrl("");
     setError(null);
     setCheckBarKey((k) => k + 1);
@@ -123,7 +189,7 @@ export default function Home() {
           <Watchlist
             products={products}
             onChange={refresh}
-            onSelect={check}
+            onSelect={selectProduct}
           />
         </div>
         <footer className="border-t border-hairline px-4 py-3">
@@ -153,8 +219,13 @@ export default function Home() {
             <div className="mt-6">
               {result ? (
                 <ProductResult
+                  key={currentUrl + result.source}
                   url={currentUrl}
                   result={result}
+                  refreshing={refreshing}
+                  initialSize={selected?.targetSize ?? null}
+                  initialColor={selected?.targetColor ?? null}
+                  alreadyTracked={selected != null}
                   onTracked={() => {
                     refresh();
                     clearResult();
