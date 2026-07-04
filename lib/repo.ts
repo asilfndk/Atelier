@@ -101,6 +101,7 @@ export function recordCheck(
   price: number | null,
   sizes?: { label: string; inStock: boolean }[] | null,
   colors?: string[] | null,
+  imageUrl?: string | null,
 ): void {
   db.insert(checkHistory).values({ productId: id, inStock, price }).run();
   // price null ise lastPrice'a dokunma: bozuk bir scrape son bilinen iyi
@@ -112,6 +113,8 @@ export function recordCheck(
   if (price != null) patch.lastPrice = price;
   if (sizes && sizes.length > 0) patch.lastSizes = JSON.stringify(sizes);
   if (colors && colors.length > 0) patch.lastColors = JSON.stringify(colors);
+  // imageUrl boş/null ise dokunma: bozuk bir scrape mevcut görseli silmesin.
+  if (imageUrl) patch.imageUrl = imageUrl;
   db.update(trackedProducts).set(patch).where(eq(trackedProducts.id, id)).run();
 }
 

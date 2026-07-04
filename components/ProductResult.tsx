@@ -73,21 +73,12 @@ export function ProductResult({
 
   return (
     <article className="grid gap-8 border border-hairline bg-paper-raised p-6 sm:grid-cols-[200px_1fr]">
-      {/* Görsel */}
-      <div className="aspect-[3/4] overflow-hidden border border-hairline bg-paper">
-        {result.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={result.imageUrl}
-            alt={result.name}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-muted">
-            görsel yok
-          </div>
-        )}
-      </div>
+      {/* Görsel — key: URL değişince remount olur, hata durumu sıfırlanır */}
+      <ProductImage
+        key={result.imageUrl ?? "none"}
+        imageUrl={result.imageUrl}
+        name={result.name}
+      />
 
       {/* Detay */}
       <div className="flex flex-col">
@@ -266,5 +257,34 @@ function Toggle({
         {label}
       </span>
     </button>
+  );
+}
+
+function ProductImage({
+  imageUrl,
+  name,
+}: {
+  imageUrl: string | null;
+  name: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  return (
+    <div className="aspect-[3/4] overflow-hidden border border-hairline bg-paper">
+      {imageUrl && !failed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageUrl}
+          alt={name}
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-muted">
+          görsel yok
+        </div>
+      )}
+    </div>
   );
 }

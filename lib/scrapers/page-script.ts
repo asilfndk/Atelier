@@ -9,7 +9,7 @@
 export const JSONLD_PAGE_SCRIPT = `
   const out = { name: "", price: null, currency: null, imageUrl: null, colors: [], sizes: [], inStock: false };
   const blocks = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
-  let product = null;
+  let product = null, group = null;
   for (const b of blocks) {
     try {
       let data = JSON.parse(b.textContent || "null");
@@ -18,9 +18,30 @@ export const JSONLD_PAGE_SCRIPT = `
         if (node && (node['@type'] === 'Product' || (Array.isArray(node['@type']) && node['@type'].includes('Product')))) {
           product = node; break;
         }
+        if (!group && node && (node['@type'] === 'ProductGroup' || (Array.isArray(node['@type']) && node['@type'].includes('ProductGroup')))) {
+          group = node;
+        }
       }
     } catch (e) {}
     if (product) break;
+  }
+  // ProductGroup (hasVariant) yayınlayan sayfalar: varyantları Offer listesine çevirip
+  // aynı akışı kullan (o.name = beden etiketi; "S (US S)" → "S").
+  if (!product && group) {
+    const vars = Array.isArray(group.hasVariant) ? group.hasVariant : [];
+    product = {
+      name: group.name,
+      image: group.image,
+      offers: vars.filter(Boolean).map((v) => {
+        const o = v.offers ? (Array.isArray(v.offers) ? v.offers[0] : v.offers) : {};
+        return {
+          price: o && o.price,
+          priceCurrency: o && o.priceCurrency,
+          availability: o && o.availability,
+          name: v.size ? String(v.size).replace(/\\s*\\(US[^)]*\\)/i, '').trim() : '',
+        };
+      }),
+    };
   }
   if (product) {
     out.name = product.name || "";
@@ -126,8 +147,9 @@ export const ZARA_PAGE_SCRIPT = `
   const out = { name: "", price: null, currency: null, imageUrl: null, colors: [], sizes: [], inStock: false };
 
   // 1) JSON-LD: ad / fiyat / para birimi / görsel
+  // Zara 2026'da Product yerine ProductGroup (hasVariant: beden başına Offer) yayınlıyor.
   const blocks = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
-  let product = null;
+  let product = null, group = null;
   for (const b of blocks) {
     try {
       const data = JSON.parse(b.textContent || "null");
@@ -135,10 +157,12 @@ export const ZARA_PAGE_SCRIPT = `
       for (const n of arr) {
         const t = n && n['@type'];
         if (t === 'Product' || (Array.isArray(t) && t.includes('Product'))) { product = n; break; }
+        if (!group && (t === 'ProductGroup' || (Array.isArray(t) && t.includes('ProductGroup')))) group = n;
       }
     } catch (e) {}
     if (product) break;
   }
+  const instockStr = (s) => typeof s === 'string' && /instock|limitedavailability/i.test(s);
   if (product) {
     out.name = product.name || "";
     if (typeof product.image === 'string') out.imageUrl = product.image;
@@ -148,20 +172,44 @@ export const ZARA_PAGE_SCRIPT = `
       if (offers[0].price != null) out.price = parseFloat(offers[0].price);
       if (offers[0].priceCurrency) out.currency = offers[0].priceCurrency;
     }
+  } else if (group) {
+    out.name = group.name || "";
+    if (typeof group.image === 'string') out.imageUrl = group.image;
+    else if (Array.isArray(group.image)) out.imageUrl = group.image[0] || null;
+    const vars = Array.isArray(group.hasVariant) ? group.hasVariant : [];
+    const seen = new Set();
+    const colorSet = new Set();
+    for (const v of vars) {
+      if (!v) continue;
+      const o = v.offers ? (Array.isArray(v.offers) ? v.offers[0] : v.offers) : null;
+      if (o) {
+        if (out.price == null && o.price != null) out.price = parseFloat(o.price);
+        if (!out.currency && o.priceCurrency) out.currency = o.priceCurrency;
+      }
+      if (v.color) colorSet.add(String(v.color));
+      // "S (US S)" → "S": parantezli ABD karşılığını at, yerel bedeni tut.
+      const label = v.size ? String(v.size).replace(/\\s*\\(US[^)]*\\)/i, '').trim() : '';
+      if (label && !seen.has(label)) {
+        seen.add(label);
+        out.sizes.push({ label, inStock: !!(o && instockStr(o.availability)) });
+      }
+    }
+    if (colorSet.size) out.colors = Array.from(colorSet);
   }
 
   // 2) Renk: seçili renk adı
   try {
     const cn = document.querySelector('.product-detail-color-selector__selected-color-name, .product-detail-info__color');
-    if (cn && cn.innerText.trim()) out.colors = [cn.innerText.trim()];
+    if (cn && cn.innerText.trim() && !out.colors.length) out.colors = [cn.innerText.trim()];
     const colorBtns = document.querySelectorAll('.product-detail-color-selector__color-button[aria-label], [class*="color-selector"] button[aria-label]');
     const set = new Set(out.colors);
     colorBtns.forEach(b => { const t = (b.getAttribute('aria-label')||'').trim(); if (t) set.add(t); });
     if (set.size) out.colors = Array.from(set).slice(0, 20);
   } catch (e) {}
 
-  // 3) Beden panelini aç (ADD) → beden seçiciyi oku
+  // 3) JSON-LD beden vermediyse: beden panelini aç (ADD) → beden seçiciyi oku
   try {
+    if (out.sizes.length < 2) {
     const addBtn = Array.from(document.querySelectorAll('button, [role="button"]'))
       .find(b => /\\bADD\\b|EKLE|SEPETE EKLE/i.test((b.innerText || '')));
     if (addBtn) { addBtn.click(); await __sleep(2000); }
@@ -177,6 +225,7 @@ export const ZARA_PAGE_SCRIPT = `
         || (action !== 'size-out-of-stock' && !/out-of-stock|disabled|is-disabled/i.test(cls));
       out.sizes.push({ label, inStock });
     });
+    }
   } catch (e) {}
 
   out.inStock = out.sizes.some(s => s.inStock)
@@ -363,13 +412,15 @@ const BOYNER_SIZE_BLOCK = `
     const domSizes = [];
     document.querySelectorAll('[class*="selectSizeOption__"]').forEach((o) => {
       const lab = o.querySelector('[class*="selectSizeOptionLabel"]');
-      const label = ((lab ? lab.textContent : o.textContent) || '').trim();
+      const raw = ((lab ? lab.textContent : o.textContent) || '').replace(/\\s+/g, ' ').trim();
+      // Etiket "M - Tükendi" gibi durum metni içerebilir: bedeni ayıkla, durumu işle.
+      const label = raw.replace(/\\s*[-–—]?\\s*(tükendi|kalmadı|stokta yok).*$/i, '').trim();
       if (!label || seen.has(label)) return;
       seen.add(label);
       const rightEl = o.querySelector('[class*="selectSizeOptionRight"]');
       const right = ((rightEl && rightEl.textContent) || '').trim();
       const cls = (o.className || '').toString();
-      const inStock = !/tüken|kalmad|stokta yok|out.?of.?stock|son\\s*0\\b/i.test(right)
+      const inStock = !/tüken|kalmad|stokta yok|out.?of.?stock|son\\s*0\\b/i.test(raw + ' ' + right)
         && !/disabled|passive/i.test(cls);
       domSizes.push({ label, inStock });
     });

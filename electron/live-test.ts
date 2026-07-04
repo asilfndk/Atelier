@@ -2,6 +2,9 @@ import { BrowserWindow, app } from "electron";
 import { checkUrl, getScraperForUrl } from "@/lib/scrapers";
 
 app.disableHardwareAcceleration();
+// Scrape pencereleri açılıp kapanır; sonuncusu kapanınca Electron'un varsayılan
+// app.quit()'i suite'i yarıda kesmesin.
+app.on("window-all-closed", () => {});
 
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";

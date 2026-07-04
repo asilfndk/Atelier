@@ -65,7 +65,7 @@ async function checkOne(p: TrackedProduct): Promise<void> {
     }
   }
 
-  recordCheck(p.id, nowInStock, res.price, res.sizes, res.colors);
+  recordCheck(p.id, nowInStock, res.price, res.sizes, res.colors, res.imageUrl);
 }
 
 /** Tüm takip listesini sırayla kontrol et (browser eşzamanlılığı zaten sınırlı). */

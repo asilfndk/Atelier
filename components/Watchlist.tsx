@@ -53,24 +53,32 @@ export function Watchlist({ products, onChange, onSelect }: Props) {
             onClick={() => onSelect(p)}
             className="no-drag block w-full text-left"
           >
-            {/* Durum noktası solda — sağ-üst köşe hover'daki çöp butonuna kalır. */}
-            <div className="flex items-center gap-1.5 pr-5">
-              <StockDot inStock={p.lastInStock} />
-              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-                {BRAND_LABELS[p.brand]}
-              </span>
-            </div>
-            <p className="mt-1 truncate text-sm font-medium text-ink">
-              {p.name ?? "İsimsiz ürün"}
-            </p>
-            <div className="mt-1 flex items-center gap-2 font-mono text-[11px] text-muted">
-              <span className="text-ink-soft">
-                {formatPrice(p.lastPrice, "TRY")}
-              </span>
-              {p.targetSize && (
-                <span className="border border-hairline px-1">{p.targetSize}</span>
-              )}
-              <span className="ml-auto">{timeAgo(p.lastCheckedAt)}</span>
+            <div className="flex items-start gap-3">
+              {/* key: URL değişince remount olur, failed durumu sıfırlanır */}
+              <Thumb key={p.imageUrl ?? "none"} imageUrl={p.imageUrl} name={p.name} />
+              <div className="min-w-0 flex-1">
+                {/* Durum noktası solda — sağ-üst köşe hover'daki çöp butonuna kalır. */}
+                <div className="flex items-center gap-1.5 pr-5">
+                  <StockDot inStock={p.lastInStock} />
+                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
+                    {BRAND_LABELS[p.brand]}
+                  </span>
+                </div>
+                <p className="mt-1 truncate text-sm font-medium text-ink">
+                  {p.name ?? "İsimsiz ürün"}
+                </p>
+                <div className="mt-1 flex items-center gap-2 font-mono text-[11px] text-muted">
+                  <span className="text-ink-soft">
+                    {formatPrice(p.lastPrice, "TRY")}
+                  </span>
+                  {p.targetSize && (
+                    <span className="border border-hairline px-1">
+                      {p.targetSize}
+                    </span>
+                  )}
+                  <span className="ml-auto">{timeAgo(p.lastCheckedAt)}</span>
+                </div>
+              </div>
             </div>
           </button>
           <button
@@ -100,6 +108,35 @@ export function Watchlist({ products, onChange, onSelect }: Props) {
         </li>
       ))}
     </ul>
+  );
+}
+
+function Thumb({
+  imageUrl,
+  name,
+}: {
+  imageUrl: string | null;
+  name: string | null;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  return (
+    <div className="aspect-[3/4] w-10 shrink-0 overflow-hidden border border-hairline bg-paper">
+      {imageUrl && !failed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageUrl}
+          alt={name ?? "Ürün görseli"}
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center font-mono text-[10px] text-muted">
+          —
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -10,6 +10,26 @@ export const BROWSER_HEADERS: Record<string, string> = {
   "Accept-Language": "tr-TR,tr;q=0.9,en;q=0.8",
 };
 
+/**
+ * Görsel URL'ini mutlak https URL'e çevir. Protokolsüz ("//host/x") ve köke
+ * göreli ("/x") değerler ürün URL'ine göre çözülür; paketlenmiş uygulamada
+ * renderer file:// origin'den yüklendiği için ham değerler yüklenemez.
+ */
+function resolveImageUrl(
+  imageUrl: string | null,
+  baseUrl: string,
+): string | null {
+  if (!imageUrl) return null;
+  try {
+    const u = new URL(imageUrl, baseUrl);
+    return u.protocol === "http:" || u.protocol === "https:"
+      ? u.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export abstract class BaseScraper {
   abstract readonly brand: Brand;
 
@@ -44,7 +64,11 @@ export abstract class BaseScraper {
     try {
       const apiResult = await this.fetchFromApi(parsed);
       if (apiResult) {
-        return { ...apiResult, source: "api" };
+        return {
+          ...apiResult,
+          imageUrl: resolveImageUrl(apiResult.imageUrl, parsed.url),
+          source: "api",
+        };
       }
     } catch (err) {
       console.warn(
@@ -55,7 +79,11 @@ export abstract class BaseScraper {
 
     // Katman 2 — gizli BrowserWindow
     const browserResult = await scrapeWithBrowser(parsed.url, this.pageScript());
-    return { ...browserResult, source: "browser" };
+    return {
+      ...browserResult,
+      imageUrl: resolveImageUrl(browserResult.imageUrl, parsed.url),
+      source: "browser",
+    };
   }
 
   /** fetch + timeout yardımcı (iç API çağrıları için) */
