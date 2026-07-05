@@ -5,6 +5,8 @@ import type { Brand } from "@/db/schema";
 export const sizeSchema = z.object({
   label: z.string(),
   inStock: z.boolean(),
+  /** Varyant bazlı fiyat (ör. Sephora ml boyları) — çoğu markada yok */
+  price: z.number().nullable().optional(),
 });
 export type SizeAvailability = z.infer<typeof sizeSchema>;
 

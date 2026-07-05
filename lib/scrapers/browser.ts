@@ -157,9 +157,11 @@ export function normalizeRaw(raw: unknown): unknown {
   const sizes = Array.isArray(r.sizes)
     ? r.sizes.map((s) => {
         const so = (s ?? {}) as Record<string, unknown>;
+        const price = toNumber(so.price);
         return {
           label: String(so.label ?? so.size ?? so.name ?? ""),
           inStock: Boolean(so.inStock ?? so.available ?? so.isAvailable ?? false),
+          ...(price != null ? { price } : {}),
         };
       })
     : [];

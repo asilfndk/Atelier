@@ -98,6 +98,11 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         </Section>
 
         <Section label="Güncelleme">
+          <Switch
+            label="Güncellemeleri otomatik denetle (24 saatte bir)"
+            checked={s.autoUpdateCheck}
+            onChange={(v) => patch({ autoUpdateCheck: v })}
+          />
           <UpdateRow version={version} update={update} />
         </Section>
       </div>
@@ -113,7 +118,8 @@ function UpdateRow({
   update: UpdateState | null;
 }) {
   const status = update?.status ?? "idle";
-  const busy = status === "checking" || status === "downloading";
+  const busy =
+    status === "checking" || status === "downloading" || status === "installing";
 
   return (
     <div className="flex flex-col gap-2">
@@ -134,26 +140,36 @@ function UpdateRow({
       {status === "error" && (
         <p className="text-xs text-signal">{update?.error}</p>
       )}
+      {status === "installing" && (
+        <p className="text-xs text-ink-soft">
+          Kuruluyor — uygulama birazdan yeniden başlayacak…
+        </p>
+      )}
       {status === "downloaded" && (
         <p className="text-xs text-ink-soft">
-          DMG açıldı — Atelier&apos;i Applications klasörüne sürükleyin.
+          Otomatik kurulamadı — DMG açıldı, Atelier&apos;i Applications
+          klasörüne sürükleyin.
         </p>
       )}
 
       <div className="flex items-center gap-2">
-        {status === "available" || status === "downloading" ? (
+        {status === "available" ||
+        status === "downloading" ||
+        status === "installing" ? (
           <button
             type="button"
             disabled={busy}
             onClick={() => getApi().downloadUpdate()}
             className="flex items-center gap-2 self-start border border-hairline px-3 py-1.5 text-xs text-ink-soft transition-colors hover:border-ink disabled:opacity-50"
           >
-            {status === "downloading" && (
+            {(status === "downloading" || status === "installing") && (
               <Loader2 className="h-3 w-3 animate-spin" />
             )}
-            {status === "downloading"
-              ? `%${update?.percent ?? 0} indiriliyor…`
-              : `v${update?.latestVersion} indir`}
+            {status === "installing"
+              ? "Kuruluyor…"
+              : status === "downloading"
+                ? `%${update?.percent ?? 0} indiriliyor…`
+                : `v${update?.latestVersion} indir ve kur`}
           </button>
         ) : (
           <button

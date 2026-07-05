@@ -37,6 +37,7 @@ const LISTINGS = [
   "https://wunder.com.tr/classic-england-polo-white-ubmw0502fa328-wth0001",
   "https://www.superstep.com.tr/urun/adidas-handball-spezial-kadin-bej-spor-ayakkabi/ki6678/",
   "https://shop.mango.com/tr/tr/p/kadın/etek/anvelop-kesim-sort-etek/27094095/99/00",
+  "https://www.sephora.com.tr/p/yum-boujee-marshmallow--81---eau-de-parfum-intense-733611.html",
 ];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

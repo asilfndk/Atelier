@@ -133,6 +133,7 @@ const DEFAULT_SETTINGS: Omit<Settings, "id"> = {
   autolaunch: false,
   notifyStock: true,
   notifyPrice: true,
+  autoUpdateCheck: true,
 };
 
 /** Ayarları getir; yoksa varsayılanı oluştur */

@@ -46,26 +46,35 @@ async function checkOne(p: TrackedProduct): Promise<void> {
     notifyRestock(p.name ?? "Ürün", p.url, p.targetSize);
   }
 
+  // Hedef bedenin kendi fiyatı varsa (ör. Sephora ml varyantları) onu izle;
+  // yoksa ürün geneli fiyat.
+  const effPrice =
+    (p.targetSize
+      ? res.sizes.find(
+          (sz) => sz.label.toLowerCase() === p.targetSize!.toLowerCase(),
+        )?.price
+      : null) ?? res.price;
+
   // Fiyat düşüşü: baseline = görülen en düşük fiyat (kademeli düşüşler kaçmaz).
   // Fiyat sonradan yükselir ve tekrar en düşüğün üstünde bir seviyeye inerse
   // bildirim gelmez — bilinçli tasarım.
-  if (res.price != null) {
+  if (effPrice != null) {
     const baseline = p.lowestPrice ?? p.lastPrice; // eski kayıtlar için ilk kontrolde backfill
     if (
       s.notifyPrice &&
       p.trackPrice &&
       baseline != null &&
-      res.price < baseline
+      effPrice < baseline
     ) {
-      notifyPriceDrop(p.name ?? "Ürün", p.url, baseline, res.price);
+      notifyPriceDrop(p.name ?? "Ürün", p.url, baseline, effPrice);
     }
     // Baseline bakımı bildirim anahtarlarından bağımsız — hep doğru kalsın.
-    if (baseline == null || res.price < baseline) {
-      updateProduct(p.id, { lowestPrice: res.price });
+    if (baseline == null || effPrice < baseline) {
+      updateProduct(p.id, { lowestPrice: effPrice });
     }
   }
 
-  recordCheck(p.id, nowInStock, res.price, res.sizes, res.colors, res.imageUrl);
+  recordCheck(p.id, nowInStock, effPrice, res.sizes, res.colors, res.imageUrl);
 }
 
 /** Tüm takip listesini sırayla kontrol et (browser eşzamanlılığı zaten sınırlı). */

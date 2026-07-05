@@ -1,15 +1,22 @@
+import { execFile, spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
+import { readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { promisify } from "node:util";
 import { app, shell } from "electron";
+import { getSettings } from "@/lib/repo";
 import { getMainWindow } from "./app-state";
+import { notifyUpdateAvailable } from "./notifications";
 
 /**
- * GitHub Releases tabanlı güncelleme denetimi.
- * Uygulama imzasız (ad-hoc) olduğundan electron-updater'ın sessiz kurulumu
- * macOS'ta güvenilir çalışmaz; bunun yerine doğru mimarinin .dmg'si indirilir
- * ve Finder'da açılır — kullanıcı Applications'a sürükler.
+ * GitHub Releases tabanlı güncelleme denetimi ve in-place kurulum.
+ * Uygulama imzasız (ad-hoc) olduğundan electron-updater macOS'ta çalışmaz
+ * (imza doğrulaması zorunlu); bunun yerine doğru mimarinin .dmg'si indirilir,
+ * mount edilip yeni .app mevcut bundle'ın üzerine kopyalanır ve uygulama
+ * yeniden başlatılır. Kurulum başarısız olursa eski davranışa düşülür:
+ * DMG Finder'da açılır, kullanıcı Applications'a sürükler.
  */
 
 const REPO = "asilfndk/inditex-tracker";
@@ -20,6 +27,7 @@ export type UpdateStatus =
   | "checking"
   | "available"
   | "downloading"
+  | "installing"
   | "downloaded"
   | "error"
   | "up-to-date";
@@ -119,9 +127,11 @@ export async function downloadUpdate(): Promise<UpdateState> {
     return getUpdateState();
   }
 
+  // Apple Silicon'da Rosetta altında çalışan x64 kurulum doğal arm64'e geçirilir.
+  const targetArch = app.runningUnderARM64Translation ? "arm64" : process.arch;
   const asset =
     release.assets.find(
-      (a) => a.name.endsWith(".dmg") && a.name.includes(process.arch),
+      (a) => a.name.endsWith(".dmg") && a.name.includes(targetArch),
     ) ?? release.assets.find((a) => a.name.endsWith(".dmg"));
   if (!asset) {
     // Uygun paket yoksa release sayfasına yönlendir.
@@ -162,8 +172,10 @@ export async function downloadUpdate(): Promise<UpdateState> {
       createWriteStream(dmgPath),
     );
 
-    await shell.openPath(dmgPath);
-    setState({ status: "downloaded", percent: 100 });
+    // İndirme tamam — kendi üzerine kur ve yeniden başlat.
+    setState({ status: "installing", percent: 100 });
+    await installUpdate(dmgPath);
+    // installUpdate app.quit() çağırır; buraya normalde dönülmez.
   } catch (err) {
     setState({
       status: "error",
@@ -173,9 +185,127 @@ export async function downloadUpdate(): Promise<UpdateState> {
   return getUpdateState();
 }
 
-/** Açılışta sessiz denetim: yalnızca güncelleme varsa renderer'a haber verir. */
+// ---- In-place kurulum ----
+
+const execFileAsync = promisify(execFile);
+
+/** `hdiutil attach` çıktısından mount noktasını çıkar (son satırdaki /Volumes/... sütunu). */
+function parseMountPoint(stdout: string): string | null {
+  for (const line of stdout.split("\n").reverse()) {
+    const m = line.match(/(\/Volumes\/[^\t\n]+?)\s*$/);
+    if (m) return m[1].trim();
+  }
+  return null;
+}
+
+/** Çalışan bundle yolu: .../Atelier.app (paketli değilse null). */
+function currentBundlePath(): string | null {
+  const m = process.execPath.match(/^(.*?\.app)\/Contents\/MacOS\//);
+  return m ? m[1] : null;
+}
+
+/**
+ * DMG'yi mount et, içindeki .app'i staging'e kopyala, çalışan bundle'ın
+ * üzerine takas edecek betiği ayrık süreç olarak başlat ve uygulamadan çık.
+ * Takas, uygulama kapandıktan sonra gerçekleşir; ardından yeni sürüm açılır.
+ * Kullanıcı verisi (userData/app.db) bundle dışında olduğundan korunur.
+ */
+async function installUpdate(dmgPath: string): Promise<void> {
+  const target = app.isPackaged ? currentBundlePath() : null;
+  if (!target) {
+    // Dev ortamı veya beklenmedik yerleşim: eski davranış (Finder'da aç).
+    await shell.openPath(dmgPath);
+    setState({ status: "downloaded", percent: 100 });
+    return;
+  }
+
+  let mountPoint: string | null = null;
+  try {
+    const { stdout } = await execFileAsync("hdiutil", [
+      "attach",
+      "-nobrowse",
+      "-noautoopen",
+      dmgPath,
+    ]);
+    mountPoint = parseMountPoint(stdout);
+    if (!mountPoint) throw new Error("DMG mount noktası bulunamadı.");
+
+    const appName = (await readdir(mountPoint)).find((f) => f.endsWith(".app"));
+    if (!appName) throw new Error("DMG içinde .app bulunamadı.");
+
+    const staging = join(app.getPath("temp"), "Atelier-update.app");
+    await rm(staging, { recursive: true, force: true });
+    await execFileAsync("ditto", [join(mountPoint, appName), staging]);
+    await execFileAsync("xattr", ["-dr", "com.apple.quarantine", staging]).catch(
+      () => {},
+    );
+
+    // Uygulama kapanınca eski bundle'ı yenisiyle takas edip yeniden başlat.
+    const script = `
+      while kill -0 ${process.pid} 2>/dev/null; do sleep 0.3; done
+      rm -rf "${target}"
+      mv "${staging}" "${target}"
+      open "${target}"
+    `;
+    spawn("/bin/bash", ["-c", script], {
+      detached: true,
+      stdio: "ignore",
+    }).unref();
+
+    app.quit();
+  } catch (err) {
+    // Otomatik kurulum başarısız — DMG'yi Finder'da açıp elle kuruluma düş.
+    console.warn("[updater] in-place kurulum başarısız:", err);
+    await shell.openPath(dmgPath);
+    setState({ status: "downloaded", percent: 100 });
+  } finally {
+    if (mountPoint) {
+      execFileAsync("hdiutil", ["detach", mountPoint, "-quiet"]).catch(() => {});
+    }
+  }
+}
+
+// ---- Otomatik denetim (açılışta + 24 saatte bir) ----
+
+const AUTO_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+let autoCheckTimer: NodeJS.Timeout | null = null;
+/** Aynı sürüm için bildirim yalnızca bir kez gönderilir. */
+let notifiedVersion: string | null = null;
+
+async function autoCheck(): Promise<void> {
+  const result = await checkForUpdate();
+  if (
+    result.status === "available" &&
+    result.latestVersion &&
+    result.latestVersion !== notifiedVersion
+  ) {
+    notifiedVersion = result.latestVersion;
+    notifyUpdateAvailable(result.latestVersion);
+  }
+}
+
+/** 24 saatlik periyodik denetimi başlat (ayar kapalıysa hiçbir şey yapmaz). */
+export function startAutoUpdateChecks(): void {
+  if (!getSettings().autoUpdateCheck) return;
+  if (autoCheckTimer) return;
+  autoCheckTimer = setInterval(() => {
+    autoCheck().catch((err) => {
+      console.warn("[updater] periyodik denetim başarısız:", err);
+    });
+  }, AUTO_CHECK_INTERVAL_MS);
+}
+
+export function stopAutoUpdateChecks(): void {
+  if (autoCheckTimer) {
+    clearInterval(autoCheckTimer);
+    autoCheckTimer = null;
+  }
+}
+
+/** Açılışta sessiz denetim: güncelleme varsa bildirim + renderer'a durum yayını. */
 export function checkOnStartup(): void {
-  checkForUpdate().catch((err) => {
+  if (!getSettings().autoUpdateCheck) return;
+  autoCheck().catch((err) => {
     console.warn("[updater] açılış denetimi başarısız:", err);
   });
 }

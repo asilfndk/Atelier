@@ -1,4 +1,5 @@
 import { Notification, app, shell } from "electron";
+import { openSettings } from "./app-state";
 
 /** Yerel macOS bildirimleri + dock rozeti. */
 
@@ -41,6 +42,19 @@ export function notifyPriceDrop(
     `${name}: ${fmt(oldPrice)} → ${fmt(newPrice)}`,
     url,
   );
+}
+
+/** Yeni uygulama sürümü bulununca — tıklanınca ayarlar (indirme butonu) açılır. */
+export function notifyUpdateAvailable(version: string): void {
+  if (!Notification.isSupported()) return;
+  const n = new Notification({
+    title: "Güncelleme mevcut",
+    body: `Atelier v${version} indirilebilir. Ayarlar'dan indirebilirsin.`,
+    silent: false,
+    sound: "Glass",
+  });
+  n.on("click", () => openSettings());
+  n.show();
 }
 
 /** Dock simgesinde stokta-olan-ürün sayısı rozeti. */

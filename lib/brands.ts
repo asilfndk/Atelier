@@ -11,6 +11,7 @@ export const BRAND_LABELS: Record<Brand, string> = {
   wunder: "Wunder",
   superstep: "Superstep",
   mango: "Mango",
+  sephora: "Sephora",
 };
 
 export function formatPrice(

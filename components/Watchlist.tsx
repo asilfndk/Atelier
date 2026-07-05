@@ -12,9 +12,11 @@ interface Props {
   onChange: () => void;
   /** Ürüne tıklayınca sağ panelde göstermek için (tarayıcı açmaz). */
   onSelect: (product: TrackedProduct) => void;
+  /** Sağ panelde açık olan ürün — satırı vurgulamak için. */
+  selectedId?: number | null;
 }
 
-export function Watchlist({ products, onChange, onSelect }: Props) {
+export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
   // Göreli zamanların ("3 dk önce") canlı ilerlemesi için periyodik re-render.
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -46,7 +48,12 @@ export function Watchlist({ products, onChange, onSelect }: Props) {
       {products.map((p) => (
         <li
           key={p.id}
-          className="group relative border-b border-hairline px-4 py-3 transition-colors hover:bg-paper-raised"
+          className={cn(
+            "group relative border-b border-l-2 border-b-hairline px-4 py-3 transition-colors hover:bg-paper-raised",
+            selectedId === p.id
+              ? "border-l-ink bg-paper-raised"
+              : "border-l-transparent",
+          )}
         >
           <button
             type="button"

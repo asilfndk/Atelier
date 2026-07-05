@@ -63,7 +63,7 @@ if (!gotLock) {
     const { createTray } = await import("./tray");
     const { setAutoLaunch } = await import("./autolaunch");
     const { getSettings } = await import("@/lib/repo");
-    const { checkOnStartup } = await import("./updater");
+    const { checkOnStartup, startAutoUpdateChecks } = await import("./updater");
 
     runMigrations();
     registerWindowCreator(createWindow);
@@ -75,8 +75,10 @@ if (!gotLock) {
     // Kayıtlı auto-launch tercihini işletim sistemiyle eşitle.
     setAutoLaunch(getSettings().autolaunch);
 
-    // Açılışta sessiz güncelleme denetimi (sonuç renderer'a event ile gider).
+    // Açılışta sessiz güncelleme denetimi (sonuç renderer'a event ile gider)
+    // + 24 saatte bir otomatik denetim (ikisi de autoUpdateCheck ayarına bağlı).
     checkOnStartup();
+    startAutoUpdateChecks();
 
     // Uyku/uyanma: uyanışta kaçırılan kontrolü telafi et (edge case #9).
     powerMonitor.on("resume", () => void checkAll());

@@ -59,7 +59,7 @@ export function ProductResult({
         targetColor: color,
         trackStock: notifyStock,
         trackPrice: notifyPrice,
-        lastPrice: result.price,
+        lastPrice: targetSize?.price ?? result.price,
         lastInStock: effectiveInStock,
         sizes: result.sizes,
         colors: result.colors,
@@ -111,7 +111,13 @@ export function ProductResult({
         </h2>
 
         <p className="mt-1 font-display text-4xl font-light tracking-tight text-ink">
-          {formatPrice(result.price, result.currency)}
+          {formatPrice(
+            // Seçili bedenin kendi fiyatı varsa (ör. Sephora ml boyları) onu göster
+            (size
+              ? result.sizes.find((s) => s.label === size)?.price
+              : null) ?? result.price,
+            result.currency,
+          )}
         </p>
 
         {/* Renk */}
@@ -159,6 +165,7 @@ export function ProductResult({
               sizes={result.sizes}
               selected={size}
               onSelect={setSize}
+              currency={result.currency}
             />
           )}
         </div>

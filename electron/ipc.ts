@@ -16,7 +16,13 @@ import { setAutoLaunch } from "./autolaunch";
 import { notifyTest } from "./notifications";
 import { checkAll, reschedule } from "./scheduler";
 import { app } from "electron";
-import { checkForUpdate, downloadUpdate, getUpdateState } from "./updater";
+import {
+  checkForUpdate,
+  downloadUpdate,
+  getUpdateState,
+  startAutoUpdateChecks,
+  stopAutoUpdateChecks,
+} from "./updater";
 
 /**
  * Renderer ↔ Main köprüsü. Tüm kanallar beyaz listelidir ve preload üzerinden
@@ -69,6 +75,14 @@ export function registerIpc(): void {
     const next = updateSettings(patch);
     if ("checkIntervalCron" in patch) reschedule();
     if ("autolaunch" in patch) setAutoLaunch(next.autolaunch);
+    if ("autoUpdateCheck" in patch) {
+      if (next.autoUpdateCheck) {
+        startAutoUpdateChecks();
+        void checkForUpdate(); // açar açmaz bir denetim
+      } else {
+        stopAutoUpdateChecks();
+      }
+    }
     return next;
   });
 

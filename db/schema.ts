@@ -18,6 +18,7 @@ export const BRANDS = [
   "wunder",
   "superstep",
   "mango",
+  "sephora",
 ] as const;
 export type Brand = (typeof BRANDS)[number];
 
@@ -75,6 +76,10 @@ export const settings = sqliteTable("settings", {
     .default(true),
   /** Fiyat düşüşü bildirimleri açık mı */
   notifyPrice: integer("notify_price", { mode: "boolean" })
+    .notNull()
+    .default(true),
+  /** Uygulama güncellemelerini otomatik denetle (açılışta + 24 saatte bir) */
+  autoUpdateCheck: integer("auto_update_check", { mode: "boolean" })
     .notNull()
     .default(true),
 });

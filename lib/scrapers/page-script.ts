@@ -540,3 +540,53 @@ const MANGO_BLOCK = `
 `;
 
 export const MANGO_PAGE_SCRIPT = STORE_CORE_SCRIPT + MANGO_BLOCK + "\n  return out;\n";
+
+/**
+ * Sephora TR (SFCC) bloğu: JSON-LD Product yok; ürün verisi microdata'da.
+ * Her boy varyantı gizli bir \`itemtype="https://schema.org/Offer"\` scope'udur:
+ * price, priceCurrency, availability, url (varyantın kendi sayfası), sku ve
+ * name ("Ürün Adı - 10 ml"). Aktif varyant, url'i sayfa pathname'iyle eşleşendir —
+ * fiyat/stok ondan alınır; tüm varyantlar \`sizes[]\` olarak listelenir.
+ */
+const SEPHORA_BLOCK = `
+  try {
+    // og:title "Ürün adı | MARKA ≡ SEPHORA" biçiminde: kuyruğu at.
+    out.name = out.name.replace(/\\s*\\|[^|]*≡\\s*SEPHORA\\s*$/i, '').trim();
+  } catch (e) {}
+  try {
+    const offers = Array.from(document.querySelectorAll('[itemtype="https://schema.org/Offer"], [itemtype="http://schema.org/Offer"]'));
+    const prop = (scope, name) => {
+      const el = scope.querySelector('[itemprop="' + name + '"]');
+      if (!el) return null;
+      return el.getAttribute('content') || el.getAttribute('href') || (el.textContent || '').trim() || null;
+    };
+    const here = location.pathname.replace(/\\/$/, '');
+    const seen = new Set();
+    const variants = [];
+    for (const o of offers) {
+      const name = prop(o, 'name') || '';
+      const m = name.match(/\\s-\\s([^-]+)$/);
+      const label = (m ? m[1] : name).trim() || (prop(o, 'sku') || '');
+      if (!label || seen.has(label)) continue;
+      seen.add(label);
+      const avail = prop(o, 'availability') || '';
+      const inStock = /instock/i.test(avail.replace(/[^a-z]/gi, ''));
+      let current = false;
+      try {
+        const u = new URL(prop(o, 'url') || '', location.href);
+        current = u.pathname.replace(/\\/$/, '') === here;
+      } catch (e) {}
+      const price = parseFloat(prop(o, 'price') || '');
+      variants.push({ label, inStock, current, price: isNaN(price) ? null : price, currency: prop(o, 'priceCurrency') });
+    }
+    if (variants.length) {
+      out.sizes = variants.map((v) => ({ label: v.label, inStock: v.inStock, price: v.price }));
+      const cur = variants.find((v) => v.current) || variants[0];
+      if (cur.price != null) out.price = cur.price;
+      if (cur.currency) out.currency = cur.currency;
+      out.inStock = cur.inStock;
+    }
+  } catch (e) {}
+`;
+
+export const SEPHORA_PAGE_SCRIPT = STORE_CORE_SCRIPT + SEPHORA_BLOCK + "\n  return out;\n";

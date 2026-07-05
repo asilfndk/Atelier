@@ -10,11 +10,14 @@ export type Brand =
   | "boyner"
   | "wunder"
   | "superstep"
-  | "mango";
+  | "mango"
+  | "sephora";
 
 export interface SizeAvailability {
   label: string;
   inStock: boolean;
+  /** Varyant bazlı fiyat (ör. Sephora ml boyları) — çoğu markada yok */
+  price?: number | null;
 }
 
 export interface ProductStock {
@@ -59,6 +62,7 @@ export interface AppSettings {
   autolaunch: boolean;
   notifyStock: boolean;
   notifyPrice: boolean;
+  autoUpdateCheck: boolean;
 }
 
 export interface CheckHistoryRow {
@@ -88,6 +92,7 @@ export type UpdateStatus =
   | "checking"
   | "available"
   | "downloading"
+  | "installing"
   | "downloaded"
   | "error"
   | "up-to-date";

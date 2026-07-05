@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, RefreshCw, Settings2 } from "lucide-react";
+import { AlertCircle, RefreshCw, Settings2, X } from "lucide-react";
 import { CheckBar } from "@/components/CheckBar";
 import { ProductResult } from "@/components/ProductResult";
 import { SettingsPanel } from "@/components/SettingsPanel";
@@ -82,6 +82,24 @@ export default function Home() {
       offSettings();
     };
   }, [refresh]);
+
+  // Panelde gösterilen ürün listeden kaldırılınca (çöp butonu, arka plan
+  // değişikliği…) sağ paneli de kapat — silinmiş ürünü göstermeye devam etme.
+  useEffect(() => {
+    if (selected && !products.some((p) => p.id === selected.id)) {
+      clearResult();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products]);
+
+  // Esc paneli kapatır (ayar modalı açıkken ona karışma — modalın kendi X'i var).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && !settingsOpen) clearResult();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [settingsOpen]);
 
   async function checkAllNow() {
     if (!hasApi()) return;
@@ -189,7 +207,12 @@ export default function Home() {
           <Watchlist
             products={products}
             onChange={refresh}
-            onSelect={selectProduct}
+            selectedId={selected?.id ?? null}
+            onSelect={(p) => {
+              // Seçili ürüne tekrar tıklamak paneli kapatır (toggle).
+              if (selected?.id === p.id) clearResult();
+              else selectProduct(p);
+            }}
           />
         </div>
         <footer className="border-t border-hairline px-4 py-3">
@@ -217,6 +240,22 @@ export default function Home() {
             )}
 
             <div className="mt-6">
+              {result && (
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
+                    {selected ? "İzleme listesinden" : "Anlık kontrol"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearResult}
+                    aria-label="Paneli kapat"
+                    title="Kapat (Esc)"
+                    className="no-drag text-muted transition-colors hover:text-ink"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
               {result ? (
                 <ProductResult
                   key={currentUrl + result.source}

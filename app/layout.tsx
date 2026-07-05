@@ -22,7 +22,7 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "Atelier — Stok Takip",
   description:
-    "Zara, Mango, Boyner ve diğer mağazaların ürünlerinde stok ve fiyat takibi.",
+    "Zara, Mango, Sephora ve diğer mağazaların ürünlerinde stok ve fiyat takibi.",
 };
 
 export default function RootLayout({
