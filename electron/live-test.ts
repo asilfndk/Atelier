@@ -110,6 +110,13 @@ app.whenReady().then(async () => {
           inStock: r.inStock,
           sizes: r.sizes,
           colors: r.colors.length,
+          colorVariants: r.colorVariants?.map((v) => ({
+            color: v.color,
+            hasUrl: !!v.url,
+            hasImage: !!v.imageUrl,
+            sizes: v.sizes?.length ?? 0,
+            price: v.price,
+          })),
         }),
       );
     } catch (e) {

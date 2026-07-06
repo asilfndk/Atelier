@@ -184,18 +184,38 @@ export function normalizeRaw(raw: unknown): unknown {
     }
     return null;
   };
-  const sizes = Array.isArray(r.sizes)
-    ? r.sizes.map((s) => {
-        const so = (s ?? {}) as Record<string, unknown>;
-        const price = toNumber(so.price);
-        return {
-          label: String(so.label ?? so.size ?? so.name ?? ""),
-          inStock: Boolean(so.inStock ?? so.available ?? so.isAvailable ?? false),
-          ...(price != null ? { price } : {}),
-        };
-      })
-    : [];
+  const normalizeSizes = (v: unknown) =>
+    Array.isArray(v)
+      ? v.map((s) => {
+          const so = (s ?? {}) as Record<string, unknown>;
+          const price = toNumber(so.price);
+          return {
+            label: String(so.label ?? so.size ?? so.name ?? ""),
+            inStock: Boolean(
+              so.inStock ?? so.available ?? so.isAvailable ?? false,
+            ),
+            ...(price != null ? { price } : {}),
+          };
+        })
+      : [];
+  const sizes = normalizeSizes(r.sizes);
   const colors = Array.isArray(r.colors) ? r.colors.map(String) : [];
+  const colorVariants = Array.isArray(r.colorVariants)
+    ? r.colorVariants
+        .map((v) => {
+          const vo = (v ?? {}) as Record<string, unknown>;
+          const price = toNumber(vo.price);
+          const vSizes = normalizeSizes(vo.sizes);
+          return {
+            color: String(vo.color ?? ""),
+            url: vo.url ? String(vo.url) : null,
+            imageUrl: vo.imageUrl ? String(vo.imageUrl) : null,
+            ...(vSizes.length ? { sizes: vSizes } : {}),
+            ...(price != null ? { price } : {}),
+          };
+        })
+        .filter((v) => v.color)
+    : [];
   return {
     name: String(r.name ?? "Bilinmeyen ürün"),
     price: toNumber(r.price),
@@ -205,5 +225,6 @@ export function normalizeRaw(raw: unknown): unknown {
     sizes,
     inStock:
       typeof r.inStock === "boolean" ? r.inStock : sizes.some((s) => s.inStock),
+    ...(colorVariants.length ? { colorVariants } : {}),
   };
 }

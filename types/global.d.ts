@@ -20,6 +20,16 @@ export interface SizeAvailability {
   price?: number | null;
 }
 
+/** Renge özel varyant verisi — renk seçilince görsel/beden/fiyat bundan güncellenir */
+export interface ColorVariant {
+  color: string;
+  /** Renge özel ürün URL'i (?v1=<id>) — takip bu URL'le yapılır */
+  url?: string | null;
+  imageUrl?: string | null;
+  sizes?: SizeAvailability[];
+  price?: number | null;
+}
+
 export interface ProductStock {
   name: string;
   price: number | null;
@@ -28,6 +38,8 @@ export interface ProductStock {
   colors: string[];
   sizes: SizeAvailability[];
   inStock: boolean;
+  /** Renk başına görsel/beden/URL (şimdilik yalnızca Zara üretir) */
+  colorVariants?: ColorVariant[];
 }
 
 export interface ScrapeResult extends ProductStock {

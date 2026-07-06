@@ -10,6 +10,17 @@ export const sizeSchema = z.object({
 });
 export type SizeAvailability = z.infer<typeof sizeSchema>;
 
+/** Renge özel varyant verisi — renk seçilince görsel/beden/fiyat bundan güncellenir */
+export const colorVariantSchema = z.object({
+  color: z.string(),
+  /** Renge özel ürün URL'i (?v1=<id>) — takip + arka plan kontrolü bu URL'le yapılır */
+  url: z.string().nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
+  sizes: z.array(sizeSchema).optional(),
+  price: z.number().nullable().optional(),
+});
+export type ColorVariant = z.infer<typeof colorVariantSchema>;
+
 /** Tüm scraper'ların döndürdüğü normalize ürün durumu */
 export const productStockSchema = z.object({
   name: z.string(),
@@ -20,6 +31,8 @@ export const productStockSchema = z.object({
   sizes: z.array(sizeSchema),
   /** En az bir beden/renk stokta mı */
   inStock: z.boolean(),
+  /** Renk başına görsel/beden/URL (şimdilik yalnızca Zara üretir) */
+  colorVariants: z.array(colorVariantSchema).optional(),
 });
 export type ProductStock = z.infer<typeof productStockSchema>;
 

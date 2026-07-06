@@ -21,6 +21,20 @@ interface Props {
   alreadyTracked?: boolean;
 }
 
+/** URL'in v1 parametresiyle eşleşen varyantın rengi; yoksa ilk renk. */
+function defaultColor(result: ScrapeResult, url: string): string | null {
+  try {
+    const v1 = new URL(url).searchParams.get("v1");
+    if (v1 && result.colorVariants) {
+      const m = result.colorVariants.find((v) => v.url?.includes(`v1=${v1}`));
+      if (m) return m.color;
+    }
+  } catch {
+    // URL ayrıştırılamazsa ilk renge düş.
+  }
+  return result.colors[0] ?? null;
+}
+
 export function ProductResult({
   url,
   result,
@@ -32,8 +46,28 @@ export function ProductResult({
 }: Props) {
   const [size, setSize] = useState<string | null>(initialSize);
   const [color, setColor] = useState<string | null>(
-    initialColor ?? result.colors[0] ?? null,
+    initialColor ?? defaultColor(result, url),
   );
+
+  // Seçili rengin varyant verisi (varsa) — görsel/beden/fiyat buradan gelir.
+  const variant =
+    (color && result.colorVariants?.find((v) => v.color === color)) || null;
+  const activeSizes = variant?.sizes?.length ? variant.sizes : result.sizes;
+  const activeImage = variant?.imageUrl ?? result.imageUrl;
+  const activeInStock = variant?.sizes?.length
+    ? variant.sizes.some((s) => s.inStock)
+    : result.inStock;
+  // Takip + "Sitede aç" renge özel URL ile — scheduler doğru varyantı kontrol eder.
+  const activeUrl = variant?.url ?? url;
+
+  function selectColor(c: string | null) {
+    setColor(c);
+    // Yeni rengin beden listesinde seçili beden yoksa seçimi bırak.
+    const next =
+      (c && result.colorVariants?.find((v) => v.color === c)) || null;
+    const sizesFor = next?.sizes?.length ? next.sizes : result.sizes;
+    if (size && !sizesFor.some((s) => s.label === size)) setSize(null);
+  }
   const [notifyStock, setNotifyStock] = useState(true);
   const [notifyPrice, setNotifyPrice] = useState(true);
   const [tracking, setTracking] = useState(false);
@@ -46,22 +80,22 @@ export function ProductResult({
       // (scheduler.effectiveInStock ile aynı kural) — böylece tükenmiş bir beden
       // takibe alınınca liste noktası anında kırmızı olur.
       const targetSize = size
-        ? result.sizes.find(
+        ? activeSizes.find(
             (s) => s.label.toLowerCase() === size.toLowerCase(),
           )
         : null;
-      const effectiveInStock = targetSize ? targetSize.inStock : result.inStock;
+      const effectiveInStock = targetSize ? targetSize.inStock : activeInStock;
       await getApi().track({
-        url,
+        url: activeUrl,
         name: result.name,
-        imageUrl: result.imageUrl,
+        imageUrl: activeImage,
         targetSize: size,
         targetColor: color,
         trackStock: notifyStock,
         trackPrice: notifyPrice,
-        lastPrice: targetSize?.price ?? result.price,
+        lastPrice: targetSize?.price ?? variant?.price ?? result.price,
         lastInStock: effectiveInStock,
-        sizes: result.sizes,
+        sizes: activeSizes,
         colors: result.colors,
       });
       setDone(true);
@@ -75,8 +109,8 @@ export function ProductResult({
     <article className="grid gap-8 border border-hairline bg-paper-raised p-6 sm:grid-cols-[200px_1fr]">
       {/* Görsel — key: URL değişince remount olur, hata durumu sıfırlanır */}
       <ProductImage
-        key={result.imageUrl ?? "none"}
-        imageUrl={result.imageUrl}
+        key={activeImage ?? "none"}
+        imageUrl={activeImage}
         name={result.name}
       />
 
@@ -86,10 +120,10 @@ export function ProductResult({
           <span
             className={cn(
               "inline-flex h-1.5 w-1.5 rounded-full",
-              result.inStock ? "bg-in-stock" : "bg-signal",
+              activeInStock ? "bg-in-stock" : "bg-signal",
             )}
           />
-          {result.inStock ? "Stokta" : "Tükendi"}
+          {activeInStock ? "Stokta" : "Tükendi"}
           <span className="text-hairline">·</span>
           <span>
             {result.source === "api"
@@ -114,8 +148,10 @@ export function ProductResult({
           {formatPrice(
             // Seçili bedenin kendi fiyatı varsa (ör. Sephora ml boyları) onu göster
             (size
-              ? result.sizes.find((s) => s.label === size)?.price
-              : null) ?? result.price,
+              ? activeSizes.find((s) => s.label === size)?.price
+              : null) ??
+              variant?.price ??
+              result.price,
             result.currency,
           )}
         </p>
@@ -131,7 +167,7 @@ export function ProductResult({
                 <button
                   key={c}
                   type="button"
-                  onClick={() => setColor(c === color ? null : c)}
+                  onClick={() => selectColor(c === color ? null : c)}
                   className={cn(
                     "no-drag border px-3 py-1.5 text-xs transition-colors",
                     c === color
@@ -151,7 +187,7 @@ export function ProductResult({
           <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
             Beden{size ? ` · ${size}` : ""}
           </p>
-          {result.sizes.length === 0 && result.source === "cache" ? (
+          {activeSizes.length === 0 && result.source === "cache" ? (
             <div className="flex flex-wrap gap-1.5">
               {[0, 1, 2, 3].map((i) => (
                 <span
@@ -162,7 +198,7 @@ export function ProductResult({
             </div>
           ) : (
             <StockMatrix
-              sizes={result.sizes}
+              sizes={activeSizes}
               selected={size}
               onSelect={setSize}
               currency={result.currency}
@@ -218,7 +254,7 @@ export function ProductResult({
           </button>
           <button
             type="button"
-            onClick={() => getApi().openExternal(url)}
+            onClick={() => getApi().openExternal(activeUrl)}
             className="no-drag flex h-10 items-center gap-2 px-4 text-sm text-ink-soft transition-colors hover:text-ink"
           >
             <ExternalLink className="h-4 w-4" />

@@ -228,6 +228,66 @@ export const ZARA_PAGE_SCRIPT = `
     }
   } catch (e) {}
 
+  // 4) Renk varyantları — birincil: window.zara.viewPayload (renk başına productId=v1,
+  // görsel, bedenler, kuruş cinsinden fiyat); yedek: JSON-LD hasVariant (URL'siz).
+  try {
+    const vp = window.zara && window.zara.viewPayload;
+    const cols = vp && vp.product && vp.product.detail && vp.product.detail.colors;
+    if (Array.isArray(cols) && cols.length) {
+      const stripUS = (s) => String(s || '').replace(/\\s*\\(US[^)]*\\)/i, '').trim();
+      const avail = (a) => /in_stock|low_on_stock/i.test(String(a || ''));
+      const minor = (v) => (typeof v === 'number' && isFinite(v)) ? v / 100 : null;
+      out.colorVariants = cols.map((c) => {
+        const img = (c.mainImgs && c.mainImgs[0]) || (c.xmedia && c.xmedia[0]) || null;
+        const imageUrl = img
+          ? ((img.extraInfo && img.extraInfo.deliveryUrl)
+             || (img.url ? String(img.url).replace('{width}', '1920') : null))
+          : null;
+        let url = null;
+        if (c.productId) {
+          const u = new URL(location.href);
+          u.searchParams.set('v1', String(c.productId));
+          url = u.toString();
+        }
+        return {
+          color: String(c.name || c.id || ''),
+          url,
+          imageUrl,
+          sizes: Array.isArray(c.sizes)
+            ? c.sizes.map((s) => ({ label: stripUS(s.name), inStock: avail(s.availability), price: minor(s.price) }))
+            : [],
+          price: minor(c.price),
+        };
+      }).filter((v) => v.color);
+    }
+  } catch (e) {}
+  if ((!out.colorVariants || !out.colorVariants.length) && group) {
+    try {
+      const vars = Array.isArray(group.hasVariant) ? group.hasVariant : [];
+      const byColor = new Map();
+      for (const v of vars) {
+        if (!v || !v.color) continue;
+        const key = String(v.color);
+        if (!byColor.has(key)) byColor.set(key, { color: key, url: null, imageUrl: null, sizes: [] });
+        const cv = byColor.get(key);
+        if (!cv.imageUrl) {
+          if (typeof v.image === 'string') cv.imageUrl = v.image;
+          else if (Array.isArray(v.image)) cv.imageUrl = v.image[0] || null;
+        }
+        const o = v.offers ? (Array.isArray(v.offers) ? v.offers[0] : v.offers) : null;
+        const label = v.size ? String(v.size).replace(/\\s*\\(US[^)]*\\)/i, '').trim() : '';
+        if (label && !cv.sizes.some((s) => s.label === label)) {
+          cv.sizes.push({ label, inStock: !!(o && instockStr(o.availability)) });
+        }
+      }
+      if (byColor.size) out.colorVariants = Array.from(byColor.values());
+    } catch (e) {}
+  }
+  // Renk etiket listesi varyantlarla tutarlı kalsın (buton sırası = varyant sırası).
+  if (out.colorVariants && out.colorVariants.length) {
+    out.colors = out.colorVariants.map((v) => v.color);
+  }
+
   out.inStock = out.sizes.some(s => s.inStock)
     || (product && JSON.stringify(product.offers||{}).toLowerCase().indexOf('instock') !== -1);
   return out;
