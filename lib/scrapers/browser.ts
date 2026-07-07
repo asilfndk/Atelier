@@ -212,6 +212,7 @@ export function normalizeRaw(raw: unknown): unknown {
             imageUrl: vo.imageUrl ? String(vo.imageUrl) : null,
             ...(vSizes.length ? { sizes: vSizes } : {}),
             ...(price != null ? { price } : {}),
+            ...(typeof vo.inStock === "boolean" ? { inStock: vo.inStock } : {}),
           };
         })
         .filter((v) => v.color)

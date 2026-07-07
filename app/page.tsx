@@ -182,7 +182,7 @@ export default function Home() {
       {/* Sidebar — izleme listesi */}
       <aside className="flex w-72 shrink-0 flex-col border-r border-hairline bg-paper">
         <div className="drag-region flex h-20 items-end px-4 pb-2">
-          <h1 className="font-display text-lg font-semibold tracking-tight text-ink">
+          <h1 className="font-display text-xl font-semibold tracking-tight text-ink">
             Atelier
           </h1>
         </div>

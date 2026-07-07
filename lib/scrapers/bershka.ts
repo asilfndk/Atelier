@@ -1,5 +1,5 @@
 import { BaseScraper } from "./base";
-import { JSONLD_PAGE_SCRIPT } from "./page-script";
+import { BERSHKA_PAGE_SCRIPT } from "./page-script";
 import type { ParsedProduct, ProductStock } from "./types";
 
 /** Bershka: https://www.bershka.com/tr/...-c0p123456789.html */
@@ -33,6 +33,6 @@ export class BershkaScraper extends BaseScraper {
   }
 
   pageScript(): string {
-    return JSONLD_PAGE_SCRIPT;
+    return BERSHKA_PAGE_SCRIPT;
   }
 }

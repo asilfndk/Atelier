@@ -28,6 +28,8 @@ export interface ColorVariant {
   imageUrl?: string | null;
   sizes?: SizeAvailability[];
   price?: number | null;
+  /** Bedensiz renk varyantının stok durumu (ör. Sephora shade'leri) */
+  inStock?: boolean | null;
 }
 
 export interface ProductStock {
@@ -38,7 +40,7 @@ export interface ProductStock {
   colors: string[];
   sizes: SizeAvailability[];
   inStock: boolean;
-  /** Renk başına görsel/beden/URL (şimdilik yalnızca Zara üretir) */
+  /** Renk başına görsel/beden/URL (Zara, Mango ve Sephora üretir) */
   colorVariants?: ColorVariant[];
 }
 

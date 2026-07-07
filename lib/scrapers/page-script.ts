@@ -294,6 +294,167 @@ export const ZARA_PAGE_SCRIPT = `
 `;
 
 /**
+ * Bershka'ya özel: JSON-LD'den ad/fiyat/görsel; renk/beden verisi sayfa İÇİNDEN
+ * çağrılan itxrest detail API'sinden gelir (doğrudan HTTP istekleri Akamai'ye
+ * takılıyor, aynı-origin fetch geçiyor). \`detail.colors[]\` renk başına ad,
+ * beden listesi (\`visibilityValue: SHOW|COMING_SOON|SOLD_OUT\` — aynı beden adı
+ * birden çok SKU satırında tekrarlar, herhangi biri SHOW ise stokta) ve kuruş
+ * cinsinden fiyat içerir; \`out.colorVariants\` buradan doldurulur (renk URL'i =
+ * pathname + \`?colorId=<id>\`, görsel = DOM renk listesindeki \`#color-<id> img\`,
+ * \`w\` parametresi 800'e büyütülür). Store/catalog/languageId TR mağazasına
+ * sabittir (uygulama TR odaklı). API başarısızsa yedek: DOM renk listesinden
+ * bedensiz colorVariants + \`.size-selector__list .size-button\`'dan bedenler.
+ */
+export const BERSHKA_PAGE_SCRIPT = `
+  const out = { name: "", price: null, currency: null, imageUrl: null, colors: [], sizes: [], inStock: false };
+
+  // 1) JSON-LD: ad / fiyat / para birimi / görsel
+  try {
+    const blocks = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+    let product = null;
+    for (const b of blocks) {
+      try {
+        const data = JSON.parse(b.textContent || "null");
+        const arr = Array.isArray(data) ? data : (data && data['@graph'] ? data['@graph'] : [data]);
+        for (const n of arr) {
+          const t = n && n['@type'];
+          if (t === 'Product' || (Array.isArray(t) && t.includes('Product'))) { product = n; break; }
+        }
+      } catch (e) {}
+      if (product) break;
+    }
+    if (product) {
+      out.name = product.name || "";
+      if (typeof product.image === 'string') out.imageUrl = product.image;
+      else if (Array.isArray(product.image)) out.imageUrl = product.image[0] || null;
+      const offers = product.offers ? (Array.isArray(product.offers) ? product.offers : [product.offers]) : [];
+      if (offers[0]) {
+        if (offers[0].price != null) out.price = parseFloat(offers[0].price);
+        if (offers[0].priceCurrency) out.currency = offers[0].priceCurrency;
+      }
+      out.inStock = offers.some((o) => typeof o.availability === 'string' && /instock/i.test(o.availability.replace(/[^a-z]/gi, '')));
+    }
+  } catch (e) {}
+
+  // DOM renk listesi: renge özel görsel (w=800'e büyüt) — API sonucuna da girdi olur.
+  const domColorImg = {};
+  try {
+    document.querySelectorAll('[data-qa-anchor="productDetailColorList"] li').forEach((li) => {
+      const m = String(li.id || '').match(/color-(\\w+)/);
+      const img = li.querySelector('img');
+      if (!m || !img || !img.src) return;
+      try {
+        const u = new URL(img.src, location.href);
+        u.searchParams.set('w', '800');
+        domColorImg[m[1]] = u.toString();
+      } catch (e) { domColorImg[m[1]] = img.src; }
+    });
+  } catch (e) {}
+
+  // 2) Birincil: itxrest detail API (sayfa içi fetch — Akamai aynı-origin isteğe izin verir).
+  try {
+    const pm = location.pathname.match(/p(\\d+)(?:\\.html)?$/i);
+    if (pm) {
+      const res = await fetch(
+        '/itxrest/2/catalog/store/44109521/40259535/category/0/product/' + pm[1] + '/detail?languageId=-43',
+        { headers: { Accept: 'application/json' } },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const sums = Array.isArray(data.bundleProductSummaries) ? data.bundleProductSummaries : [];
+        const detail = (sums[0] && sums[0].detail) || {};
+        const cols = Array.isArray(detail.colors) ? detail.colors : [];
+        if (cols.length) {
+          const minor = (v) => { const n = parseFloat(v); return isFinite(n) ? n / 100 : null; };
+          out.colorVariants = cols.map((c) => {
+            const seen = new Set();
+            const sizes = [];
+            (Array.isArray(c.sizes) ? c.sizes : []).forEach((s) => {
+              const label = String(s.name || '').trim();
+              if (!label) return;
+              const inStock = String(s.visibilityValue || '') === 'SHOW';
+              if (seen.has(label)) {
+                const prev = sizes.find((x) => x.label === label);
+                if (prev && inStock) prev.inStock = true;
+                return;
+              }
+              seen.add(label);
+              sizes.push({ label, inStock, price: minor(s.price) });
+            });
+            return {
+              color: String(c.name || c.id || ''),
+              url: location.origin + location.pathname + '?colorId=' + c.id,
+              imageUrl: domColorImg[String(c.id)] || null,
+              sizes,
+              price: sizes.length ? sizes[0].price : null,
+            };
+          }).filter((v) => v.color);
+          out.colors = out.colorVariants.map((v) => v.color);
+          // Aktif renk: URL'deki colorId, yoksa ilk renk.
+          const colorId = new URL(location.href).searchParams.get('colorId');
+          let ai = cols.findIndex((c) => String(c.id) === String(colorId));
+          if (ai < 0) ai = 0;
+          const active = out.colorVariants[ai];
+          if (active) {
+            if (active.sizes.length) {
+              out.sizes = active.sizes;
+              out.inStock = active.sizes.some((s) => s.inStock);
+            }
+            if (active.price != null) out.price = active.price;
+            if (active.imageUrl && !out.imageUrl) out.imageUrl = active.imageUrl;
+          }
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 3) Yedek — API varyant vermediyse: DOM renk listesi + DOM beden okuma.
+  try {
+    if (!out.colorVariants || !out.colorVariants.length) {
+      const vars = [];
+      document.querySelectorAll('[data-qa-anchor="productDetailColorList"] li').forEach((li) => {
+        const a = li.querySelector('a');
+        const name = ((a && a.getAttribute('aria-label')) || '').trim();
+        if (!name) return;
+        const m = String(li.id || '').match(/color-(\\w+)/);
+        vars.push({
+          color: name,
+          url: a && a.href ? a.href : null,
+          imageUrl: (m && domColorImg[m[1]]) || null,
+        });
+      });
+      if (vars.length) {
+        out.colorVariants = vars;
+        out.colors = vars.map((v) => v.color);
+      }
+    }
+  } catch (e) {}
+  try {
+    if (!out.sizes.length) {
+      const seen = new Set();
+      const domSizes = [];
+      document.querySelectorAll('.size-selector__list .size-button').forEach((b) => {
+        const lab = b.querySelector('.size-button__label');
+        const label = ((lab ? lab.textContent : b.textContent) || '').trim();
+        if (!label || seen.has(label)) return;
+        seen.add(label);
+        const cls = (b.className || '').toString();
+        const inStock = !b.disabled
+          && b.getAttribute('aria-disabled') !== 'true'
+          && !/disabled|out-of-stock|sold|tüken/i.test(cls);
+        domSizes.push({ label, inStock });
+      });
+      if (domSizes.length) {
+        out.sizes = domSizes;
+        out.inStock = domSizes.some((s) => s.inStock);
+      }
+    }
+  } catch (e) {}
+
+  return out;
+`;
+
+/**
  * Inditex dışı mağazalar için ORTAK çekirdek: JSON-LD Product + og/meta yedeği ile
  * ad/fiyat/para birimi/görsel/stok (evrensel sinyaller). `out` nesnesini doldurur,
  * `return` ETMEZ — marka-özel beden bloğu eklenip sonuna `return out;` konur.
@@ -715,18 +876,121 @@ const MANGO_BLOCK = `
 export const MANGO_PAGE_SCRIPT = STORE_CORE_SCRIPT + MANGO_BLOCK + "\n  return out;\n";
 
 /**
- * Sephora TR (SFCC) bloğu: JSON-LD Product yok; ürün verisi microdata'da.
- * Her boy varyantı gizli bir \`itemtype="https://schema.org/Offer"\` scope'udur:
- * price, priceCurrency, availability, url (varyantın kendi sayfası), sku ve
- * name ("Ürün Adı - 10 ml"). Aktif varyant, url'i sayfa pathname'iyle eşleşendir —
- * fiyat/stok ondan alınır; tüm varyantlar \`sizes[]\` olarak listelenir.
+ * Sephora TR (Next.js RSC) bloğu: JSON-LD Product yok; birincil kaynak RSC
+ * flight payload'ındaki (\`self.__next_f\`) \`"variants"\` dizisi — varyant başına
+ * id, name, kendi ürün sayfası URL'i, thumbnailImage (gerçek ürün fotoğrafı,
+ * \`scaleWidth/scaleHeight\` ile büyütülebilir), image (renk çipi/swatch),
+ * isAvailable ve price. Ad kalıbı varyant türünü belirler: TÜM adlar salt boy
+ * ("10 ml", "50 g") ise boy ürünü → varyantlar \`sizes[]\` (boy başına fiyat);
+ * aksi halde renk ürünü → \`colorVariants[]\` (renk seçilince görsel/fiyat/stok
+ * değişir, takip renge özel URL ile yapılır) ve \`sizes\` boş kalır.
+ * Aktif varyant, url'i sayfa pathname'iyle eşleşendir — fiyat/stok ondan alınır.
+ * Yedek: microdata \`itemtype="...Offer"\` scope'ları (flight bulunamazsa) —
+ * name ("Ürün Adı - 10 ml") kuyruğu beden etiketi olarak listelenir.
  */
 const SEPHORA_BLOCK = `
   try {
     // og:title "Ürün adı | MARKA ≡ SEPHORA" biçiminde: kuyruğu at.
     out.name = out.name.replace(/\\s*\\|[^|]*≡\\s*SEPHORA\\s*$/i, '').trim();
   } catch (e) {}
+
+  // 1) RSC flight payload: varyantlar (renk ya da boy).
   try {
+    let flight = '';
+    if (Array.isArray(self.__next_f)) {
+      flight = self.__next_f
+        .map((x) => (Array.isArray(x) && typeof x[1] === 'string') ? x[1] : '')
+        .join('');
+    }
+    if (flight.indexOf('"variants":[') === -1) {
+      // Hydration __next_f'i boşaltır; veri script'lerdeki
+      // self.__next_f.push([1,"..."]) string literal'lerinde escape'li durur.
+      const parts = [];
+      document.querySelectorAll('script').forEach((s) => {
+        const t = s.textContent || '';
+        const a = t.indexOf('__next_f.push([1,"');
+        if (a === -1) return;
+        const b = t.lastIndexOf('"])');
+        if (b <= a) return;
+        try { parts.push(JSON.parse('"' + t.slice(a + 18, b) + '"')); } catch (e) {}
+      });
+      flight = parts.join('');
+    }
+    // '"variants":' sonrasındaki JSON dizisini string-bilinçli dengeli taramayla kes.
+    const sliceArray = (text, from) => {
+      let depth = 0, inStr = false, esc = false;
+      for (let k = from; k < text.length; k++) {
+        const ch = text[k];
+        if (esc) { esc = false; continue; }
+        if (ch === '\\\\') { esc = true; continue; }
+        if (ch === '"') { inStr = !inStr; continue; }
+        if (inStr) continue;
+        if (ch === '[') depth++;
+        else if (ch === ']') { depth--; if (!depth) return text.slice(from, k + 1); }
+      }
+      return null;
+    };
+    let vars = null;
+    let idx = 0;
+    while (!vars) {
+      const at = flight.indexOf('"variants":[', idx);
+      if (at === -1) break;
+      idx = at + 1;
+      const seg = sliceArray(flight, at + 11);
+      if (!seg) continue;
+      try {
+        const arr = JSON.parse(seg);
+        if (Array.isArray(arr) && arr.length && arr[0] && arr[0].id && arr[0].name) vars = arr;
+      } catch (e) {}
+    }
+    if (vars) {
+      const here = location.pathname.replace(/\\/$/, '');
+      const isCurrent = (v) => {
+        try { return new URL(v.url || '', location.href).pathname.replace(/\\/$/, '') === here; }
+        catch (e) { return false; }
+      };
+      let active = vars.find(isCurrent) || vars[0];
+      const SIZE_ONLY = /^\\d+([.,]\\d+)?\\s*(ml|g|gr)\\.?$/i;
+      if (vars.every((v) => SIZE_ONLY.test(String(v.name || '').trim()))) {
+        // Boy ürünü (parfüm vb.): varyantlar beden listesi, boy başına fiyat.
+        out.sizes = vars.map((v) => ({
+          label: String(v.name).trim(),
+          inStock: !!v.isAvailable,
+          price: (typeof v.price === 'number') ? v.price : null,
+        }));
+      } else {
+        // Renk ürünü (shade): renk başına görsel/fiyat/stok + renge özel URL.
+        const upscale = (src) => {
+          try {
+            const u = new URL(src, location.href);
+            u.searchParams.set('scaleWidth', '750');
+            u.searchParams.set('scaleHeight', '750');
+            return u.toString();
+          } catch (e) { return src || null; }
+        };
+        out.colorVariants = vars.map((v) => ({
+          // Kuyruktaki boy parantezini at: "Original Rose/Gloss (5.2 ml)" → "Original Rose/Gloss"
+          color: String(v.name || '').replace(/\\s*\\([^)]*\\)\\s*$/, '').trim(),
+          url: v.url || null,
+          imageUrl: (v.thumbnailImage && v.thumbnailImage.src)
+            ? upscale(v.thumbnailImage.src)
+            : ((v.image && v.image.src) || null),
+          price: (typeof v.price === 'number') ? v.price : null,
+          inStock: !!v.isAvailable,
+        })).filter((v) => v.color);
+        out.colors = out.colorVariants.map((v) => v.color);
+      }
+      if (active) {
+        if (typeof active.price === 'number') out.price = active.price;
+        if (active.currency) out.currency = active.currency;
+        out.inStock = !!active.isAvailable;
+      }
+    }
+  } catch (e) {}
+
+  // 2) Microdata yedeği — yalnızca flight varyant vermediyse.
+  try {
+    if (!out.sizes.length && !(out.colorVariants && out.colorVariants.length)) {
     const offers = Array.from(document.querySelectorAll('[itemtype="https://schema.org/Offer"], [itemtype="http://schema.org/Offer"]'));
     const prop = (scope, name) => {
       const el = scope.querySelector('[itemprop="' + name + '"]');
@@ -758,6 +1022,7 @@ const SEPHORA_BLOCK = `
       if (cur.price != null) out.price = cur.price;
       if (cur.currency) out.currency = cur.currency;
       out.inStock = cur.inStock;
+    }
     }
   } catch (e) {}
 `;

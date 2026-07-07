@@ -73,7 +73,7 @@ export function ProductResult({
   const activeImage = variant?.imageUrl ?? result.imageUrl;
   const activeInStock = variant?.sizes?.length
     ? variant.sizes.some((s) => s.inStock)
-    : result.inStock;
+    : (variant?.inStock ?? result.inStock);
   // Takip + "Sitede aç" renge özel URL ile — scheduler doğru varyantı kontrol eder.
   const activeUrl = variant?.url ?? url;
 

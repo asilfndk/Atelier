@@ -18,6 +18,8 @@ export const colorVariantSchema = z.object({
   imageUrl: z.string().nullable().optional(),
   sizes: z.array(sizeSchema).optional(),
   price: z.number().nullable().optional(),
+  /** Bedensiz renk varyantının stok durumu (ör. Sephora shade'leri) */
+  inStock: z.boolean().nullable().optional(),
 });
 export type ColorVariant = z.infer<typeof colorVariantSchema>;
 
@@ -31,7 +33,7 @@ export const productStockSchema = z.object({
   sizes: z.array(sizeSchema),
   /** En az bir beden/renk stokta mı */
   inStock: z.boolean(),
-  /** Renk başına görsel/beden/URL (şimdilik yalnızca Zara üretir) */
+  /** Renk başına görsel/beden/URL (Zara, Mango ve Sephora üretir) */
   colorVariants: z.array(colorVariantSchema).optional(),
 });
 export type ProductStock = z.infer<typeof productStockSchema>;
