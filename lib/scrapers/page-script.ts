@@ -300,8 +300,10 @@ export const ZARA_PAGE_SCRIPT = `
  * beden listesi (\`visibilityValue: SHOW|COMING_SOON|SOLD_OUT\` — aynı beden adı
  * birden çok SKU satırında tekrarlar, herhangi biri SHOW ise stokta) ve kuruş
  * cinsinden fiyat içerir; \`out.colorVariants\` buradan doldurulur (renk URL'i =
- * pathname + \`?colorId=<id>\`, görsel = DOM renk listesindeki \`#color-<id> img\`,
- * \`w\` parametresi 800'e büyütülür). Store/catalog/languageId TR mağazasına
+ * pathname + \`?colorId=<id>\`, görsel = \`detail.xmedia[]\`'daki renk başına
+ * p/principal fotoğrafın \`deliveryUrl\`'i, \`w=800\`; DOM renk listesindeki
+ * \`#color-<id> img\` yalnızca son çare — o \`-r.jpg\` kumaş kırpımıdır, ürün
+ * fotoğrafı değildir). Store/catalog/languageId TR mağazasına
  * sabittir (uygulama TR odaklı). API başarısızsa yedek: DOM renk listesinden
  * bedensiz colorVariants + \`.size-selector__list .size-button\`'dan bedenler.
  */
@@ -336,7 +338,7 @@ export const BERSHKA_PAGE_SCRIPT = `
     }
   } catch (e) {}
 
-  // DOM renk listesi: renge özel görsel (w=800'e büyüt) — API sonucuna da girdi olur.
+  // DOM renk listesi görselleri (-r kumaş kırpımı, w=800) — yalnızca yedek.
   const domColorImg = {};
   try {
     document.querySelectorAll('[data-qa-anchor="productDetailColorList"] li').forEach((li) => {
@@ -364,6 +366,30 @@ export const BERSHKA_PAGE_SCRIPT = `
         const sums = Array.isArray(data.bundleProductSummaries) ? data.bundleProductSummaries : [];
         const detail = (sums[0] && sums[0].detail) || {};
         const cols = Array.isArray(detail.colors) ? detail.colors : [];
+        // Renk başına gerçek ürün fotoğrafı: detail.xmedia[] (path'in son
+        // segmenti colorId). İlk p/p1 (principal) media'nın deliveryUrl'i;
+        // yoksa r/s (kırpım/swatch) OLMAYAN ilk media.
+        const xmediaImg = {};
+        try {
+          (Array.isArray(detail.xmedia) ? detail.xmedia : []).forEach((x) => {
+            const cid = String((x.path || '').split('/').filter(Boolean).pop() || '');
+            if (!cid || xmediaImg[cid]) return;
+            const medias = [];
+            (Array.isArray(x.xmediaItems) ? x.xmediaItems : []).forEach((it) => {
+              (Array.isArray(it.medias) ? it.medias : []).forEach((m) => medias.push(m));
+            });
+            const urlOf = (m) => (m && m.extraInfo && m.extraInfo.deliveryUrl) || (m && m.url) || null;
+            const nameOf = (m) => String((m && m.extraInfo && m.extraInfo.originalName) || '');
+            const pick = medias.find((m) => /^p\\d*$/i.test(nameOf(m)) && urlOf(m))
+              || medias.find((m) => !/^(r|s)\\d*$/i.test(nameOf(m)) && urlOf(m));
+            if (!pick) return;
+            try {
+              const u = new URL(urlOf(pick), location.href);
+              u.searchParams.set('w', '800');
+              xmediaImg[cid] = u.toString();
+            } catch (e) { xmediaImg[cid] = urlOf(pick); }
+          });
+        } catch (e) {}
         if (cols.length) {
           const minor = (v) => { const n = parseFloat(v); return isFinite(n) ? n / 100 : null; };
           out.colorVariants = cols.map((c) => {
@@ -384,7 +410,7 @@ export const BERSHKA_PAGE_SCRIPT = `
             return {
               color: String(c.name || c.id || ''),
               url: location.origin + location.pathname + '?colorId=' + c.id,
-              imageUrl: domColorImg[String(c.id)] || null,
+              imageUrl: xmediaImg[String(c.id)] || domColorImg[String(c.id)] || null,
               sizes,
               price: sizes.length ? sizes[0].price : null,
             };
@@ -972,9 +998,12 @@ const SEPHORA_BLOCK = `
           // Kuyruktaki boy parantezini at: "Original Rose/Gloss (5.2 ml)" → "Original Rose/Gloss"
           color: String(v.name || '').replace(/\\s*\\([^)]*\\)\\s*$/, '').trim(),
           url: v.url || null,
-          imageUrl: (v.thumbnailImage && v.thumbnailImage.src)
-            ? upscale(v.thumbnailImage.src)
-            : ((v.image && v.image.src) || null),
+          // image.src (media_swatch) shade'in gerçek ürün fotoğrafı; thumbnail
+          // yalnızca native parametreleriyle yedek (CDN thumbnail'i büyütmüyor —
+          // scale parametresi değiştirilirse boş yanıt dönüyor).
+          imageUrl: (v.image && v.image.src)
+            ? upscale(v.image.src)
+            : ((v.thumbnailImage && v.thumbnailImage.src) || null),
           price: (typeof v.price === 'number') ? v.price : null,
           inStock: !!v.isAvailable,
         })).filter((v) => v.color);
