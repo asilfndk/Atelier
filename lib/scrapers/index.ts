@@ -11,6 +11,8 @@ import { WunderScraper } from "./wunder";
 import { SuperstepScraper } from "./superstep";
 import { MangoScraper } from "./mango";
 import { SephoraScraper } from "./sephora";
+import { GratisScraper } from "./gratis";
+import { WatsonsScraper } from "./watsons";
 import type { ScrapeResult } from "./types";
 
 const scrapers: BaseScraper[] = [
@@ -25,6 +27,8 @@ const scrapers: BaseScraper[] = [
   new SuperstepScraper(),
   new MangoScraper(),
   new SephoraScraper(),
+  new GratisScraper(),
+  new WatsonsScraper(),
 ];
 
 /** URL'i işleyebilecek scraper'ı döndür (yoksa null) */

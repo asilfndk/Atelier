@@ -11,7 +11,9 @@ export type Brand =
   | "wunder"
   | "superstep"
   | "mango"
-  | "sephora";
+  | "sephora"
+  | "gratis"
+  | "watsons";
 
 export interface SizeAvailability {
   label: string;

@@ -1057,3 +1057,107 @@ const SEPHORA_BLOCK = `
 `;
 
 export const SEPHORA_PAGE_SCRIPT = STORE_CORE_SCRIPT + SEPHORA_BLOCK + "\n  return out;\n";
+
+/**
+ * Gratis (Next.js RSC) bloğu: JSON-LD Product var ama \`price\` kuruş cinsinden
+ * promosyon fiyatı (18950 = koşullu "250 TL üzeri" kampanyası) — kullanılmaz.
+ * Birincil kaynak RSC flight payload'ı (\`self.__next_f\`):
+ * - \`"productData":{"product":{...}}\` — \`prices.discountedPrice\` (kuruş, /100),
+ *   \`stockStatus\` ("HIGH"/"LOW"/"NONE"), ana görsel \`imageUrls[0]\`.
+ * - \`"variants":[{color, colorUrl (swatch görseli), shareLink (renge özel URL)}]\`
+ *   → \`colorVariants\` (renk seçilince takip renge özel URL ile yapılır).
+ *   Varyant başına fiyat/stok payload'da yok — alanlar atlanır, UI ürün geneline düşer.
+ * Kozmetik: beden yok, \`sizes\` boş kalır.
+ */
+const GRATIS_BLOCK = `
+  try {
+    let flight = '';
+    if (Array.isArray(self.__next_f)) {
+      flight = self.__next_f
+        .map((x) => (Array.isArray(x) && typeof x[1] === 'string') ? x[1] : '')
+        .join('');
+    }
+    if (flight.indexOf('"productData"') === -1) {
+      // Hydration __next_f'i boşaltır; veri script'lerdeki
+      // self.__next_f.push([1,"..."]) string literal'lerinde escape'li durur.
+      const parts = [];
+      document.querySelectorAll('script').forEach((s) => {
+        const t = s.textContent || '';
+        const a = t.indexOf('__next_f.push([1,"');
+        if (a === -1) return;
+        const b = t.lastIndexOf('"])');
+        if (b <= a) return;
+        try { parts.push(JSON.parse('"' + t.slice(a + 18, b) + '"')); } catch (e) {}
+      });
+      flight = parts.join('');
+    }
+    // '"anahtar":' sonrasındaki JSON değerini string-bilinçli dengeli taramayla kes.
+    const sliceBalanced = (text, from, open, close) => {
+      let depth = 0, inStr = false, esc = false;
+      for (let k = from; k < text.length; k++) {
+        const ch = text[k];
+        if (esc) { esc = false; continue; }
+        if (ch === '\\\\') { esc = true; continue; }
+        if (ch === '"') { inStr = !inStr; continue; }
+        if (inStr) continue;
+        if (ch === open) depth++;
+        else if (ch === close) { depth--; if (!depth) return text.slice(from, k + 1); }
+      }
+      return null;
+    };
+    const parseAt = (marker, open, close) => {
+      let idx = 0;
+      while (true) {
+        const at = flight.indexOf(marker, idx);
+        if (at === -1) return null;
+        idx = at + 1;
+        const seg = sliceBalanced(flight, at + marker.length - 1, open, close);
+        if (!seg) continue;
+        try { return JSON.parse(seg); } catch (e) {}
+      }
+    };
+
+    // 1) Ürün geneli: fiyat (kuruş) + stok + görsel.
+    const pd = parseAt('"productData":{', '{', '}');
+    const prod = pd && pd.product;
+    if (prod) {
+      const prices = prod.prices || {};
+      const kurus = (typeof prices.discountedPrice === 'number')
+        ? prices.discountedPrice
+        : ((typeof prices.normalPrice === 'number') ? prices.normalPrice : null);
+      if (kurus != null) out.price = kurus / 100;
+      if (prices.currency) out.currency = prices.currency;
+      if (typeof prod.stockStatus === 'string') {
+        out.inStock = prod.stockStatus.toUpperCase() !== 'NONE';
+      }
+      if (Array.isArray(prod.imageUrls) && prod.imageUrls[0] && prod.imageUrls[0].fileUrl) {
+        out.imageUrl = prod.imageUrls[0].fileUrl;
+      }
+    }
+
+    // 2) Renk varyantları (shade'ler) — renge özel URL + swatch görseli.
+    let vars = null;
+    let idx = 0;
+    while (!vars) {
+      const at = flight.indexOf('"variants":[', idx);
+      if (at === -1) break;
+      idx = at + 1;
+      const seg = sliceBalanced(flight, at + 11, '[', ']');
+      if (!seg) continue;
+      try {
+        const arr = JSON.parse(seg);
+        if (Array.isArray(arr) && arr.length && arr[0] && arr[0].color && arr[0].shareLink) vars = arr;
+      } catch (e) {}
+    }
+    if (vars) {
+      out.colorVariants = vars.map((v) => ({
+        color: String(v.color || '').trim(),
+        url: v.shareLink || null,
+        imageUrl: v.colorUrl || null,
+      })).filter((v) => v.color);
+      out.colors = out.colorVariants.map((v) => v.color);
+    }
+  } catch (e) {}
+`;
+
+export const GRATIS_PAGE_SCRIPT = STORE_CORE_SCRIPT + GRATIS_BLOCK + "\n  return out;\n";
