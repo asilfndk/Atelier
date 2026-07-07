@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Bell, Check, ExternalLink, Loader2, Tag } from "lucide-react";
 import { getApi } from "@/lib/client-api";
 import { formatPrice } from "@/lib/brands";
@@ -72,15 +72,32 @@ export function ProductResult({
   const [color, setColor] = useState<string | null>(
     initialColor ?? defaultColor(result, url),
   );
+  // Tembel çekilen varyant verisi (renk → canlı sonuç). Bazı markalarda (Gratis)
+  // varyantın gerçek fotoğrafı/fiyatı yalnız kendi sayfasında/detayında olduğundan
+  // renk seçilince arka planda checkUrl(variant.url) ile tamamlanır.
+  const [variantData, setVariantData] = useState<Record<string, ScrapeResult>>(
+    {},
+  );
+  const [variantLoading, setVariantLoading] = useState(false);
+  // Hızlı renk değişiminde geç dönen çekim spinner'ı yanlış kapatmasın.
+  const variantToken = useRef(0);
 
-  // Seçili rengin varyant verisi (varsa) — görsel/beden/fiyat buradan gelir.
+  // Seçili rengin varyant verisi (varsa) — görsel/beden/fiyat buradan gelir;
+  // tembel çekilmiş canlı veri (fetched) varyant snapshot'ını önceler.
   const variant =
     (color && result.colorVariants?.find((v) => v.color === color)) || null;
-  const activeSizes = variant?.sizes?.length ? variant.sizes : result.sizes;
-  const activeImage = variant?.imageUrl ?? result.imageUrl;
-  const activeInStock = variant?.sizes?.length
-    ? variant.sizes.some((s) => s.inStock)
-    : (variant?.inStock ?? result.inStock);
+  const fetched = (color && variantData[color]) || null;
+  const activeSizes = fetched?.sizes?.length
+    ? fetched.sizes
+    : variant?.sizes?.length
+      ? variant.sizes
+      : result.sizes;
+  const activeImage = fetched?.imageUrl ?? variant?.imageUrl ?? result.imageUrl;
+  const activeInStock = fetched
+    ? fetched.inStock
+    : variant?.sizes?.length
+      ? variant.sizes.some((s) => s.inStock)
+      : (variant?.inStock ?? result.inStock);
   // Takip + "Sitede aç" renge özel URL ile — scheduler doğru varyantı kontrol eder.
   const activeUrl = variant?.url ?? url;
   // Repo'daki dedup kuralıyla aynı ('' coalescing dahil): sadece seçili kombo
@@ -99,6 +116,26 @@ export function ProductResult({
       (c && result.colorVariants?.find((v) => v.color === c)) || null;
     const sizesFor = next?.sizes?.length ? next.sizes : result.sizes;
     if (size && !sizesFor.some((s) => s.label === size)) setSize(null);
+
+    // Tembel varyant çekimi: varyantın URL'i var ama görseli yoksa (Gratis)
+    // gerçek fotoğraf/fiyat/stok arka planda kendi detayından alınır.
+    const token = ++variantToken.current;
+    if (c && next?.url && next.imageUrl == null && !variantData[c]) {
+      setVariantLoading(true);
+      getApi()
+        .checkUrl(next.url)
+        .then((res) => {
+          setVariantData((m) => ({ ...m, [c]: res }));
+        })
+        .catch(() => {
+          // Çekim başarısız: ürün geneli gösterilmeye devam eder.
+        })
+        .finally(() => {
+          if (variantToken.current === token) setVariantLoading(false);
+        });
+    } else {
+      setVariantLoading(false);
+    }
   }
   const [notifyStock, setNotifyStock] = useState(true);
   const [notifyPrice, setNotifyPrice] = useState(true);
@@ -125,7 +162,11 @@ export function ProductResult({
         targetColor: color,
         trackStock: notifyStock,
         trackPrice: notifyPrice,
-        lastPrice: targetSize?.price ?? variant?.price ?? result.price,
+        lastPrice:
+          targetSize?.price ??
+          fetched?.price ??
+          variant?.price ??
+          result.price,
         lastInStock: effectiveInStock,
         sizes: activeSizes,
         colors: result.colors,
@@ -164,7 +205,7 @@ export function ProductResult({
                 ? "Tarayıcı"
                 : "Önbellek"}
           </span>
-          {refreshing && (
+          {(refreshing || variantLoading) && (
             <span className="flex items-center gap-1 text-ink-soft">
               <Loader2 className="h-3 w-3 animate-spin" />
               yenileniyor…
@@ -182,6 +223,7 @@ export function ProductResult({
             (size
               ? activeSizes.find((s) => s.label === size)?.price
               : null) ??
+              fetched?.price ??
               variant?.price ??
               result.price,
             result.currency,
