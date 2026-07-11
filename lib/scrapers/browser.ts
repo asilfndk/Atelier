@@ -164,7 +164,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     p,
     new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`Timed out (${ms}ms)`)), ms),
+      setTimeout(() => reject(new Error(`The check timed out after ${Math.round(ms / 1000)}s.`)), ms),
     ),
   ]);
 }
@@ -219,7 +219,7 @@ export function normalizeRaw(raw: unknown): unknown {
         .filter((v) => v.color)
     : [];
   return {
-    name: String(r.name ?? "Unknown product"),
+    name: String(r.name ?? "Untitled item"),
     price: toNumber(r.price),
     currency: r.currency ? String(r.currency) : null,
     imageUrl: r.imageUrl ? String(r.imageUrl) : null,

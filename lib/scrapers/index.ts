@@ -48,7 +48,7 @@ export async function checkUrl(url: string): Promise<ScrapeResult> {
   const scraper = getScraperForUrl(url);
   if (!scraper) {
     throw new Error(
-      "Unsupported URL. Paste a product link from one of the supported stores.",
+      "This link isn't supported. Paste a product link from one of the supported stores.",
     );
   }
   return scraper.check(url);

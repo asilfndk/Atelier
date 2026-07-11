@@ -21,7 +21,7 @@ export function StockMatrix({ sizes, selected, onSelect, currency }: Props) {
   if (sizes.length === 0) {
     return (
       <p className="font-mono text-xs uppercase tracking-widest text-muted">
-        Could not read size info
+        No size information available
       </p>
     );
   }
@@ -41,7 +41,7 @@ export function StockMatrix({ sizes, selected, onSelect, currency }: Props) {
             onClick={() => onSelect?.(isSel ? null : s.label)}
             aria-pressed={isSel}
             title={
-              (s.inStock ? "In stock" : "Sold out (can still be tracked)") +
+              (s.inStock ? "In stock" : "Sold out — you can still track it") +
               (priceLabel ? ` · ${priceLabel}` : "")
             }
             className={cn(

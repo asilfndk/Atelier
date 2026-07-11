@@ -31,7 +31,7 @@ function buildCachedResult(p: TrackedProduct): ScrapeResult {
     colors = [];
   }
   return {
-    name: p.name ?? "Untitled product",
+    name: p.name ?? "Untitled item",
     price: p.lastPrice,
     currency: "TRY",
     imageUrl: p.imageUrl,
@@ -159,7 +159,7 @@ export default function Home() {
       if (selectionToken.current === token) setResult(res);
     } catch (e) {
       if (selectionToken.current === token) {
-        setError(e instanceof Error ? e.message : "Check failed.");
+        setError(e instanceof Error ? e.message : "Couldn't check this link. Please try again.");
       }
     } finally {
       if (selectionToken.current === token) setLoading(false);
@@ -254,7 +254,7 @@ export default function Home() {
               {result && (
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-                    {selected ? "From the watchlist" : "Instant check"}
+                    {selected ? "From your watchlist" : "Live check"}
                   </span>
                   <button
                     type="button"
@@ -307,17 +307,16 @@ function EmptyState() {
         Stock &amp; price tracking
       </p>
       <h2 className="mt-3 max-w-md font-display text-4xl font-light leading-[1.1] tracking-tight text-ink">
-        Don&apos;t wait around for a size to{" "}
+        Never wait for a size to{" "}
         <span className="font-semibold italic text-signal">come back</span>{" "}
         or a price to{" "}
-        <span className="font-semibold italic text-price-drop">
-          drop
-        </span>
-        .
+        <span className="font-semibold italic text-price-drop">drop</span>{" "}
+        again.
       </h2>
       <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-soft">
-        Paste a product link from a supported store. See its stock instantly,
-        start tracking it; Atelier handles the rest in the background.
+        Paste a product link from any supported store to check availability
+        instantly — then add it to your watchlist and Atelier keeps an eye on
+        it in the background.
       </p>
     </div>
   );

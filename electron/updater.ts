@@ -93,7 +93,7 @@ export async function checkForUpdate(): Promise<UpdateState> {
       },
     });
     if (res.status === 403 || res.status === 429) {
-      throw new Error("GitHub rate limit hit, try again in a while.");
+      throw new Error("GitHub rate limit reached — try again in a few minutes.");
     }
     if (!res.ok) throw new Error(`GitHub response: ${res.status}`);
     const release = (await res.json()) as Release;
@@ -113,7 +113,7 @@ export async function checkForUpdate(): Promise<UpdateState> {
   } catch (err) {
     setState({
       status: "error",
-      error: err instanceof Error ? err.message : "Check failed.",
+      error: err instanceof Error ? err.message : "Update check failed.",
     });
   }
   return getUpdateState();
@@ -124,7 +124,7 @@ export async function downloadUpdate(): Promise<UpdateState> {
   if (state.status === "downloading") return getUpdateState();
   const release = latestRelease;
   if (!release) {
-    setState({ status: "error", error: "Run an update check first." });
+    setState({ status: "error", error: "Check for updates first." });
     return getUpdateState();
   }
 
@@ -180,7 +180,7 @@ export async function downloadUpdate(): Promise<UpdateState> {
   } catch (err) {
     setState({
       status: "error",
-      error: err instanceof Error ? err.message : "Download failed.",
+      error: err instanceof Error ? err.message : "The download couldn't be completed.",
     });
   }
   return getUpdateState();

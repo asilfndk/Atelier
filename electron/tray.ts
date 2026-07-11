@@ -36,12 +36,12 @@ export function updateTray(): void {
       enabled: false,
     },
     { type: "separator" },
-    { label: "Show Window", click: () => showWindow() },
+    { label: "Open Atelier", click: () => showWindow() },
     { label: "Check Now", click: () => void checkAll() },
     { label: "Settings…", click: () => openSettings() },
     { type: "separator" },
     {
-      label: "Quit",
+      label: "Quit Atelier",
       click: () => {
         (globalThis as { __isQuitting?: boolean }).__isQuitting = true;
         app.quit();

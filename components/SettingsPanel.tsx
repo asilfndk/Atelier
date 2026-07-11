@@ -10,7 +10,7 @@ const INTERVALS: { label: string; cron: string }[] = [
   { label: "5 min", cron: "*/5 * * * *" },
   { label: "15 min", cron: "*/15 * * * *" },
   { label: "30 min", cron: "*/30 * * * *" },
-  { label: "Hourly", cron: "0 * * * *" },
+  { label: "1 hour", cron: "0 * * * *" },
 ];
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
@@ -49,7 +49,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <Section label="Check frequency">
+        <Section label="Check every">
           <div className="flex gap-1.5">
             {INTERVALS.map((it) => (
               <button
@@ -71,12 +71,12 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
 
         <Section label="Notifications">
           <Switch
-            label="Notify on restock"
+            label="Back-in-stock alerts"
             checked={s.notifyStock}
             onChange={(v) => patch({ notifyStock: v })}
           />
           <Switch
-            label="Notify on price drop"
+            label="Price-drop alerts"
             checked={s.notifyPrice}
             onChange={(v) => patch({ notifyPrice: v })}
           />
@@ -85,13 +85,13 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             onClick={() => getApi().testNotification()}
             className="mt-1 self-start border border-hairline px-3 py-1.5 text-xs text-ink-soft transition-colors hover:border-ink"
           >
-            Send test notification
+            Send a test notification
           </button>
         </Section>
 
         <Section label="System">
           <Switch
-            label="Launch at login"
+            label="Open at login"
             checked={s.autolaunch}
             onChange={(v) => patch({ autolaunch: v })}
           />
@@ -99,7 +99,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
 
         <Section label="Updates">
           <Switch
-            label="Check for updates automatically (every 24h)"
+            label="Check for updates automatically"
             checked={s.autoUpdateCheck}
             onChange={(v) => patch({ autoUpdateCheck: v })}
           />
@@ -142,13 +142,13 @@ function UpdateRow({
       )}
       {status === "installing" && (
         <p className="text-xs text-ink-soft">
-          Installing — the app will restart shortly…
+          Installing — Atelier will restart in a moment…
         </p>
       )}
       {status === "downloaded" && (
         <p className="text-xs text-ink-soft">
-          Automatic install failed — the DMG has been opened, drag Atelier
-          into the Applications folder.
+          Automatic install didn&apos;t complete — the installer is open,
+          drag Atelier into your Applications folder to finish.
         </p>
       )}
 
@@ -168,8 +168,8 @@ function UpdateRow({
             {status === "installing"
               ? "Installing…"
               : status === "downloading"
-                ? `Downloading ${update?.percent ?? 0}%…`
-                : `Download and install v${update?.latestVersion}`}
+                ? `Downloading… ${update?.percent ?? 0}%`
+                : `Update to v${update?.latestVersion}`}
           </button>
         ) : (
           <button

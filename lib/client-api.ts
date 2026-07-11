@@ -8,7 +8,7 @@ import type { InditexApi } from "@/types/global";
 export function getApi(): InditexApi {
   if (typeof window === "undefined" || !window.api) {
     throw new Error(
-      "App bridge not found. Open this window from inside the Atelier app.",
+      "This page only works inside the Atelier app.",
     );
   }
   return window.api;

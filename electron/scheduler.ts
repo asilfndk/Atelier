@@ -43,7 +43,7 @@ async function checkOne(p: TrackedProduct): Promise<void> {
 
   // Stock transition: out → in (notify only once — edge case #8)
   if (s.notifyStock && p.trackStock && !wasInStock && nowInStock) {
-    notifyRestock(p.name ?? "Product", p.id, p.targetSize);
+    notifyRestock(p.name ?? "Your item", p.id, p.targetSize);
   }
 
   // If the target size has its own price (e.g. Sephora ml variants) track that;
@@ -66,7 +66,7 @@ async function checkOne(p: TrackedProduct): Promise<void> {
       baseline != null &&
       effPrice < baseline
     ) {
-      notifyPriceDrop(p.name ?? "Product", p.id, baseline, effPrice);
+      notifyPriceDrop(p.name ?? "Your item", p.id, baseline, effPrice);
     }
     // Baseline maintenance is independent of notification switches — keep it always correct.
     if (baseline == null || effPrice < baseline) {

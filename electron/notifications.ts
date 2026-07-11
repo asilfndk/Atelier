@@ -13,7 +13,7 @@ function notify(title: string, body: string, onClick?: () => void): void {
 
 /** Test notification triggered from settings — verifies the permission/registration flow. */
 export function notifyTest(): void {
-  notify("Atelier", "Notifications are working ✅");
+  notify("Atelier", "You're all set — notifications are working ✅");
 }
 
 export function notifyRestock(
@@ -22,7 +22,7 @@ export function notifyRestock(
   size?: string | null,
 ): void {
   const sizeStr = size ? ` (${size})` : "";
-  notify("Back in stock! 🎉", `${name}${sizeStr} is in stock again.`, () =>
+  notify("Back in stock 🎉", `${name}${sizeStr} is available again — grab it while it lasts.`, () =>
     openProduct(productId),
   );
 }
@@ -39,7 +39,7 @@ export function notifyPriceDrop(
       currency: "TRY",
       maximumFractionDigits: 0,
     }).format(v);
-  notify("Price dropped ↓", `${name}: ${fmt(oldPrice)} → ${fmt(newPrice)}`, () =>
+  notify("Price drop ↓", `${name}: ${fmt(oldPrice)} → ${fmt(newPrice)}`, () =>
     openProduct(productId),
   );
 }
@@ -49,7 +49,7 @@ export function notifyUpdateAvailable(version: string): void {
   if (!Notification.isSupported()) return;
   const n = new Notification({
     title: "Update available",
-    body: `Atelier v${version} is available. You can download it from Settings.`,
+    body: `Atelier v${version} is ready to install. Open Settings to update.`,
     silent: false,
     sound: "Glass",
   });

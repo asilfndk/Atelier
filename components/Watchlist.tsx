@@ -37,8 +37,8 @@ export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
   if (products.length === 0) {
     return (
       <p className="px-4 py-6 font-mono text-xs leading-relaxed text-muted">
-        Nothing tracked yet. Paste a product link and hit{" "}
-        <span className="text-ink-soft">Track</span>.
+        Your watchlist is empty. Paste a product link above and hit{" "}
+        <span className="text-ink-soft">Add to Watchlist</span>.
       </p>
     );
   }
@@ -72,7 +72,7 @@ export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
                   </span>
                 </div>
                 <p className="mt-1 truncate text-sm font-medium text-ink">
-                  {p.name ?? "Untitled product"}
+                  {p.name ?? "Untitled item"}
                 </p>
                 <div className="mt-1 flex items-center gap-2 font-mono text-[11px] text-muted">
                   <span className="text-ink-soft">
@@ -92,9 +92,9 @@ export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
             type="button"
             onClick={() => togglePriceTracking(p)}
             aria-label={
-              p.trackPrice ? "Turn off price tracking" : "Turn on price tracking"
+              p.trackPrice ? "Turn off price alerts" : "Turn on price alerts"
             }
-            title={p.trackPrice ? "Price tracking on" : "Price tracking off"}
+            title={p.trackPrice ? "Price alerts on" : "Price alerts off"}
             className={cn(
               "no-drag absolute right-8 top-3 transition-colors",
               p.trackPrice
@@ -107,7 +107,7 @@ export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
           <button
             type="button"
             onClick={() => remove(p.id)}
-            aria-label="Untrack"
+            aria-label="Remove from watchlist"
             className="no-drag absolute right-3 top-3 hidden text-muted transition-colors hover:text-signal group-hover:block"
           >
             <Trash2 className="h-3.5 w-3.5" />

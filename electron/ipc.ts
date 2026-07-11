@@ -33,9 +33,9 @@ export function registerIpc(): void {
 
   ipcMain.handle("track", async (_e, input: TrackInput & { url: string }) => {
     const scraper = getScraperForUrl(input.url);
-    if (!scraper) throw new Error("Unsupported URL.");
+    if (!scraper) throw new Error("This link isn't supported.");
     const parsed = scraper.parseUrl(input.url);
-    if (!parsed) throw new Error("Could not parse the URL.");
+    if (!parsed) throw new Error("This product link couldn't be read.");
     const product = trackProduct({
       ...input,
       brand: parsed.brand,

@@ -55,7 +55,7 @@ export function CheckBar({ onCheck, loading }: Props) {
         ) : (
           <ArrowRight className="h-4 w-4" strokeWidth={2} />
         )}
-        {loading ? "Checking" : "Check"}
+        {loading ? "Checking…" : "Check"}
       </button>
     </div>
   );

@@ -205,12 +205,12 @@ export function ProductResult({
               ? "API"
               : result.source === "browser"
                 ? "Browser"
-                : "Cache"}
+                : "Cached"}
           </span>
           {(refreshing || variantLoading) && (
             <span className="flex items-center gap-1 text-ink-soft">
               <Loader2 className="h-3 w-3 animate-spin" />
-              refreshing…
+              Refreshing…
             </span>
           )}
         </div>
@@ -288,13 +288,13 @@ export function ProductResult({
             active={notifyStock}
             onClick={() => setNotifyStock((v) => !v)}
             icon={<Bell className="h-3.5 w-3.5" />}
-            label="Notify on restock"
+            label="Notify me when it's back in stock"
           />
           <Toggle
             active={notifyPrice}
             onClick={() => setNotifyPrice((v) => !v)}
             icon={<Tag className="h-3.5 w-3.5" />}
-            label="Notify on price drop"
+            label="Notify me when the price drops"
           />
         </div>
 
@@ -323,10 +323,10 @@ export function ProductResult({
               <Bell className="h-4 w-4" />
             )}
             {alreadyTracked
-              ? "Already tracked"
+              ? "In your watchlist"
               : done
-                ? "Now tracking"
-                : "Track"}
+                ? "Added to watchlist"
+                : "Add to Watchlist"}
           </button>
           <button
             type="button"
@@ -334,7 +334,7 @@ export function ProductResult({
             className="no-drag flex h-10 items-center gap-2 px-4 text-sm text-ink-soft transition-colors hover:text-ink"
           >
             <ExternalLink className="h-4 w-4" />
-            Open on site
+            View on site
           </button>
         </div>
       </div>
@@ -401,7 +401,7 @@ function ProductImage({
         />
       ) : (
         <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-muted">
-          no image
+          No image
         </div>
       )}
     </div>
