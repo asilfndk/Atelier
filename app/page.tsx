@@ -159,7 +159,11 @@ export default function Home() {
       if (selectionToken.current === token) setResult(res);
     } catch (e) {
       if (selectionToken.current === token) {
-        setError(e instanceof Error ? e.message : "Couldn't check this link. Please try again.");
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Couldn't check this link. Please try again.",
+        );
       }
     } finally {
       if (selectionToken.current === token) setLoading(false);
@@ -306,16 +310,16 @@ function EmptyState() {
       <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted">
         Stock &amp; price tracking
       </p>
-      <h2 className="mt-3 max-w-md font-display text-4xl font-light leading-[1.1] tracking-tight text-ink">
-        Never miss a{" "}
-        <span className="font-semibold italic text-signal">restock</span> or a{" "}
+      <h2 className="mt-3 whitespace-nowrap font-display text-[clamp(1.5rem,3vw,2.25rem)] font-light leading-[1.1] tracking-tight text-ink">
+        Never miss{" "}
+        <span className="font-semibold italic text-signal">restock</span> or{" "}
         <span className="font-semibold italic text-price-drop">price drop</span>{" "}
         again.
       </h2>
-      <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-soft">
+      <p className="mt-4 max-w-xl text-sm leading-relaxed text-ink-soft">
         Paste a product link from any supported store to check availability
-        instantly — then add it to your watchlist and Atelier keeps an eye on
-        it in the background.
+        instantly — then add it to your watchlist and Atelier keeps an eye on it
+        in the background.
       </p>
     </div>
   );

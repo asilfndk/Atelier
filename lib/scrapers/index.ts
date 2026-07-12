@@ -2,6 +2,7 @@ import type { Brand } from "@/db/schema";
 import type { BaseScraper } from "./base";
 import { BershkaScraper } from "./bershka";
 import { StradivariusScraper } from "./stradivarius";
+import { PullandbearScraper } from "./pullandbear";
 import { ZaraScraper } from "./zara";
 import { SneaksupScraper } from "./sneaksup";
 import { TommyScraper } from "./tommy";
@@ -19,6 +20,7 @@ const scrapers: BaseScraper[] = [
   new ZaraScraper(),
   new BershkaScraper(),
   new StradivariusScraper(),
+  new PullandbearScraper(),
   new SneaksupScraper(),
   new TommyScraper(),
   new VictoriassecretScraper(),

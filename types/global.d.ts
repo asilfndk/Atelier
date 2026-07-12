@@ -4,6 +4,7 @@ export type Brand =
   | "zara"
   | "bershka"
   | "stradivarius"
+  | "pullandbear"
   | "sneaksup"
   | "tommy"
   | "victoriassecret"
