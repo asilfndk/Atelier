@@ -35,6 +35,13 @@ const LISTINGS = [
   // Lefties — direct product URLs (multi-color jeans + footwear).
   "https://www.lefties.com/tr/en/woman/clothing/jeans/lightweight-striped-culotte-jeans-c1030267526p747880059.html?colorId=104&parentId=747884869",
   "https://www.lefties.com/tr/en/woman/footwear/flat-sandals/gold-strappy-flat-sandals-c1030290507p747861209.html?colorId=091&style=04&parentId=754686322",
+  // Oysho — direct product URLs (leggings with a length dimension + tapered pants).
+  "https://www.oysho.com/tr/high-rise-comfortlux-bilek-hizasında-tayt-l31216226?colorId=516&pelement=203653805",
+  "https://www.oysho.com/tr/100-pamuklu-tapered-pantolon-l35681670?colorId=913&pelement=223465926",
+  // Massimo Dutti — direct product URL (multi-color jean).
+  "https://www.massimodutti.com/tr/yuksek-bel-genis-paca-jean-l05052852?pelement=61733754",
+  // Les Benjamins — direct product URL (Shopify .js Layer-1 API).
+  "https://lesbenjamins.com/collections/kadin-tisort/products/short-sleeve-tee-404-lb26ssclafuts-404",
   // Newer stores — direct product URLs (parseUrl matches → scraped directly).
   "https://www.sneaksup.com/new-balance-9060-lifestyle-womens-shoes-u9060blk-w-1",
   "https://tr.tommy.com/erkek-hirka_206739",

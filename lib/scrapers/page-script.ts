@@ -490,6 +490,13 @@ interface ItxrestScriptConfig {
   pinned?: { storeId: string; catalogId: string; note: string };
   /** Initial languageId before discovery overrides it (default "-43", tr-TR) */
   defaultLangId?: string;
+  /**
+   * Put the color in the URL hash (#colorId=427) instead of the query string.
+   * Massimo Dutti's SPA hangs forever on unknown query params (the page never
+   * reaches dom-ready), so variant URLs must not add one; the hash never
+   * reaches the router and the script reads it back for the active color.
+   */
+  colorInHash?: boolean;
 }
 
 /**
@@ -631,6 +638,10 @@ function makeItxrestScript(cfg: ItxrestScriptConfig): string {
       }
       const sums = data && Array.isArray(data.bundleProductSummaries) ? data.bundleProductSummaries : [];
       const detail = (sums[0] && sums[0].detail) || {};
+      // Some stores on this platform (Oysho) ship no JSON-LD — take the name
+      // from the API detail and assume the store currency (all TR stores: TRY).
+      if (!out.name) out.name = String((sums[0] && sums[0].name) || detail.description || '').trim();
+      if (!out.currency && sums.length) out.currency = 'TRY';
       const cols = Array.isArray(detail.colors) ? detail.colors : [];
       // Real product photo per color from detail.xmedia[] (path's last segment
       // is the colorId; prefer the p/principal media, never r/s crops).
@@ -659,11 +670,21 @@ function makeItxrestScript(cfg: ItxrestScriptConfig): string {
         const minor = (v) => { const n = parseFloat(v); return isFinite(n) ? n / 100 : null; };
         out.colorVariants = cols.map((c) => {
           const rows = Array.isArray(c.sizes) ? c.sizes : [];
+          // Second size dimension (Oysho leggings: sizeType regular/long) —
+          // the same size name repeats once per length. Composite labels keep
+          // the dimensions apart; brands with a single/empty sizeType are
+          // untouched (P&B/Lefties/MD send "" throughout).
+          const sizeTypes = new Set();
+          rows.forEach((s) => { const t = String(s.sizeType || '').trim(); if (t) sizeTypes.add(t); });
+          const multiType = sizeTypes.size > 1;
+          const typeLabel = (t) => ({ regular: 'Standart', long: 'Uzun', short: 'Kısa' })[t] || t;
           const seen = new Set();
           const sizes = [];
           rows.forEach((s) => {
-            const label = String(s.name || '').trim();
+            let label = String(s.name || '').trim();
             if (!label) return;
+            const st = String(s.sizeType || '').trim();
+            if (multiType && st) label = label + ' · ' + typeLabel(st);
             const inStock = String(s.visibilityValue || '') === 'SHOW';
             if (seen.has(label)) {
               const prev = sizes.find((x) => x.label === label);
@@ -674,18 +695,22 @@ function makeItxrestScript(cfg: ItxrestScriptConfig): string {
             sizes.push({ label, inStock, price: minor(s.price) });
           });
           const v = {
-            color: String(c.name || c.id || ''),
+            color: String(c.name || c.id || '').trim(),
             // Keep the page's other query params (?${cfg.productIdParam}=, style…):
             // they carry the API productId — a bare ?${cfg.colorParam}= URL
             // re-scrapes as "no sizes / sold out".
             url: (function () {
               try {
                 const vu = new URL(location.href);
-                vu.searchParams.set('${cfg.colorParam}', c.id);
-                vu.hash = '';
+                ${
+                  cfg.colorInHash
+                    ? `vu.hash = '${cfg.colorParam}=' + c.id;`
+                    : `vu.searchParams.set('${cfg.colorParam}', c.id);
+                vu.hash = '';`
+                }
                 return vu.toString();
               } catch (e) {
-                return location.origin + location.pathname + '?${cfg.colorParam}=' + c.id;
+                return location.origin + location.pathname + '${cfg.colorInHash ? "#" : "?"}${cfg.colorParam}=' + c.id;
               }
             })(),
             imageUrl: xmediaImg[String(c.id)] || null,
@@ -697,9 +722,14 @@ function makeItxrestScript(cfg: ItxrestScriptConfig): string {
           return v;
         }).filter((v) => v.color);
         out.colors = out.colorVariants.map((v) => v.color);
-        // Active color: ?${cfg.colorParam}= in the URL, else ?${altColorParam}=, else first.
+        // Active color: ?${cfg.colorParam}= in the URL (or #${cfg.colorParam}=),
+        // else ?${altColorParam}=, else first.
         const q = new URL(location.href).searchParams;
-        const cS = q.get('${cfg.colorParam}') || q.get('${altColorParam}');
+        let cS = q.get('${cfg.colorParam}') || q.get('${altColorParam}');
+        if (!cS) {
+          const hm = location.hash.match(/[#&]${cfg.colorParam}=([\\w-]+)/);
+          if (hm) cS = hm[1];
+        }
         let ai = cols.findIndex((c) => String(c.id) === String(cS));
         if (ai < 0) ai = 0;
         const active = out.colorVariants[ai];
@@ -764,6 +794,15 @@ function makeItxrestScript(cfg: ItxrestScriptConfig): string {
     }
   } catch (e) {}
 
+  // Bot-shell guard: under rapid consecutive hits Akamai serves an empty
+  // challenge page (observed on Massimo Dutti). Failing loudly makes the
+  // scheduler keep the last known state instead of recording a false
+  // out-of-stock from a contentless page.
+  if (!out.name && out.price == null && !out.sizes.length
+      && !(out.colorVariants && out.colorVariants.length)) {
+    return { __error: 'empty page (bot challenge?)' };
+  }
+
   return out;
 `;
 }
@@ -788,6 +827,27 @@ export const LEFTIES_PAGE_SCRIPT = makeItxrestScript({
   },
   // The TR site serves /tr/en (English) — the store's own calls use -1.
   defaultLangId: "-1",
+});
+
+export const OYSHO_PAGE_SCRIPT = makeItxrestScript({
+  colorParam: "colorId",
+  productIdParam: "pelement",
+  pinned: {
+    storeId: "64009621",
+    catalogId: "60361124",
+    note: "Oysho TR store/catalog IDs observed live on 2026-07-17",
+  },
+});
+
+export const MASSIMODUTTI_PAGE_SCRIPT = makeItxrestScript({
+  colorParam: "colorId",
+  productIdParam: "pelement",
+  pinned: {
+    storeId: "34009471",
+    catalogId: "30359503",
+    note: "Massimo Dutti TR store/catalog IDs observed live on 2026-07-17",
+  },
+  colorInHash: true,
 });
 
 /**

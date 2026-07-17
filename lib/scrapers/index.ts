@@ -1,6 +1,7 @@
 import type { Brand } from "@/db/schema";
 import type { BaseScraper } from "./base";
 import { GratisScraper } from "./gratis";
+import { LesBenjaminsScraper } from "./lesbenjamins";
 import { inditexParse, lastSegmentParse, makeScraper } from "./simple";
 import {
   BERSHKA_PAGE_SCRIPT,
@@ -9,6 +10,8 @@ import {
   JSONLD_PAGE_SCRIPT,
   LEFTIES_PAGE_SCRIPT,
   MANGO_PAGE_SCRIPT,
+  MASSIMODUTTI_PAGE_SCRIPT,
+  OYSHO_PAGE_SCRIPT,
   PULLANDBEAR_PAGE_SCRIPT,
   SEPHORA_PAGE_SCRIPT,
   SNEAKSUP_PAGE_SCRIPT,
@@ -53,6 +56,18 @@ const scrapers: BaseScraper[] = [
     brand: "lefties",
     hostname: "lefties.com",
     script: LEFTIES_PAGE_SCRIPT,
+    parse: (u) => inditexParse(u, LP_CODE),
+  }),
+  makeScraper({
+    brand: "oysho",
+    hostname: "oysho.com",
+    script: OYSHO_PAGE_SCRIPT,
+    parse: (u) => inditexParse(u, LP_CODE),
+  }),
+  makeScraper({
+    brand: "massimodutti",
+    hostname: "massimodutti.com",
+    script: MASSIMODUTTI_PAGE_SCRIPT,
     parse: (u) => inditexParse(u, LP_CODE),
   }),
   makeScraper({
@@ -144,6 +159,7 @@ const scrapers: BaseScraper[] = [
     },
   }),
   new GratisScraper(),
+  new LesBenjaminsScraper(),
   makeScraper({
     brand: "watsons",
     hostname: "watsons.com.tr",

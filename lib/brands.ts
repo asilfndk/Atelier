@@ -6,6 +6,8 @@ export const BRAND_LABELS: Record<Brand, string> = {
   stradivarius: "Stradivarius",
   pullandbear: "Pull & Bear",
   lefties: "Lefties",
+  oysho: "Oysho",
+  massimodutti: "Massimo Dutti",
   sneaksup: "SneaksUp",
   tommy: "Tommy Hilfiger",
   victoriassecret: "Victoria's Secret",
@@ -16,6 +18,7 @@ export const BRAND_LABELS: Record<Brand, string> = {
   sephora: "Sephora",
   gratis: "Gratis",
   watsons: "Watsons",
+  lesbenjamins: "Les Benjamins",
 };
 
 export function formatPrice(

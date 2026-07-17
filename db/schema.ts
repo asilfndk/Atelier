@@ -14,6 +14,8 @@ export const BRANDS = [
   "stradivarius",
   "pullandbear",
   "lefties",
+  "oysho",
+  "massimodutti",
   "sneaksup",
   "tommy",
   "victoriassecret",
@@ -24,6 +26,7 @@ export const BRANDS = [
   "sephora",
   "gratis",
   "watsons",
+  "lesbenjamins",
 ] as const;
 export type Brand = (typeof BRANDS)[number];
 
