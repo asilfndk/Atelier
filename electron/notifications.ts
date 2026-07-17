@@ -42,13 +42,20 @@ export function notifyPriceDrop(
   productId: number,
   oldPrice: number,
   newPrice: number,
+  currency?: string | null,
 ): void {
-  const fmt = (v: number) =>
-    new Intl.NumberFormat("tr-TR", {
-      style: "currency",
-      currency: "TRY",
-      maximumFractionDigits: 0,
-    }).format(v);
+  const cur = currency || "TRY";
+  const fmt = (v: number) => {
+    try {
+      return new Intl.NumberFormat("tr-TR", {
+        style: "currency",
+        currency: cur,
+        maximumFractionDigits: 2,
+      }).format(v);
+    } catch {
+      return `${v.toFixed(2)} ${cur}`;
+    }
+  };
   notify("Price drop ↓", `${name}: ${fmt(oldPrice)} → ${fmt(newPrice)}`, () =>
     openProduct(productId),
   );

@@ -1,52 +1,18 @@
 // Renderer-side type definition of the renderer ↔ main bridge (preload.ts).
+//
+// Types shared with the main process are type-only re-exports of their single
+// source of truth — erased at compile time, so the renderer never pulls in
+// better-sqlite3/zod at runtime. Only renderer-specific shapes are declared
+// here.
 
-export type Brand =
-  | "zara"
-  | "bershka"
-  | "stradivarius"
-  | "pullandbear"
-  | "lefties"
-  | "sneaksup"
-  | "tommy"
-  | "victoriassecret"
-  | "boyner"
-  | "wunder"
-  | "superstep"
-  | "mango"
-  | "sephora"
-  | "gratis"
-  | "watsons";
-
-export interface SizeAvailability {
-  label: string;
-  inStock: boolean;
-  /** Per-variant price (e.g. Sephora ml sizes) — absent for most brands */
-  price?: number | null;
-}
-
-/** Color-specific variant data — image/sizes/price update from this on color selection */
-export interface ColorVariant {
-  color: string;
-  /** Color-specific product URL (?v1=<id>) — tracking uses this URL */
-  url?: string | null;
-  imageUrl?: string | null;
-  sizes?: SizeAvailability[];
-  price?: number | null;
-  /** Stock status of a sizeless color variant (e.g. Sephora shades) */
-  inStock?: boolean | null;
-}
-
-export interface ProductStock {
-  name: string;
-  price: number | null;
-  currency: string | null;
-  imageUrl: string | null;
-  colors: string[];
-  sizes: SizeAvailability[];
-  inStock: boolean;
-  /** Per-color image/sizes/URL (Zara, Bershka, Pull & Bear, Lefties, Mango, Sephora…) */
-  colorVariants?: ColorVariant[];
-}
+export type { Brand, TrackedProduct } from "@/db/schema";
+export type {
+  ColorVariant,
+  ProductStock,
+  SizeAvailability,
+} from "@/lib/scrapers/types";
+import type { ProductStock, SizeAvailability } from "@/lib/scrapers/types";
+import type { Settings, CheckHistory, TrackedProduct } from "@/db/schema";
 
 export interface ScrapeResult extends ProductStock {
   /** "cache" is renderer-only: page.tsx synthesizes it when showing the last
@@ -54,44 +20,9 @@ export interface ScrapeResult extends ProductStock {
   source: "api" | "browser" | "cache";
 }
 
-export interface TrackedProduct {
-  id: number;
-  url: string;
-  brand: Brand;
-  productId: string;
-  name: string | null;
-  imageUrl: string | null;
-  targetSize: string | null;
-  targetColor: string | null;
-  trackStock: boolean;
-  trackPrice: boolean;
-  lastPrice: number | null;
-  lastInStock: boolean | null;
-  lowestPrice: number | null;
-  /** JSON SizeAvailability[] — size matrix of the last check */
-  lastSizes: string | null;
-  /** JSON string[] — color list of the last check */
-  lastColors: string | null;
-  createdAt: Date;
-  lastCheckedAt: Date | null;
-}
+export type AppSettings = Settings;
 
-export interface AppSettings {
-  id: number;
-  checkIntervalCron: string;
-  autolaunch: boolean;
-  notifyStock: boolean;
-  notifyPrice: boolean;
-  autoUpdateCheck: boolean;
-}
-
-export interface CheckHistoryRow {
-  id: number;
-  productId: number;
-  inStock: boolean | null;
-  price: number | null;
-  checkedAt: Date;
-}
+export type CheckHistoryRow = CheckHistory;
 
 export interface TrackPayload {
   url: string;

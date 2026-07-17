@@ -480,24 +480,46 @@ export const BERSHKA_PAGE_SCRIPT = `
   return out;
 `;
 
+/** Config for the shared itxrest page-script template (newer Inditex SPAs). */
+interface ItxrestScriptConfig {
+  /** URL query param that selects the active color (cS for P&B, colorId for Lefties) */
+  colorParam: string;
+  /** URL query param that carries the API productId (pelement / parentId) */
+  productIdParam: string;
+  /** Last-resort store/catalog IDs; omit for discovery-only (self-healing) */
+  pinned?: { storeId: string; catalogId: string; note: string };
+  /** Initial languageId before discovery overrides it (default "-43", tr-TR) */
+  defaultLangId?: string;
+}
+
 /**
- * Pull & Bear page script. Layer 1: JSON-LD (name/price/image/stock — also the
- * safety net for sizeless items like perfume). Layer 2: the itxrest detail API
- * via in-page same-origin fetch, like Bershka — but Pull & Bear's TR
- * store/catalog IDs are not pinned: the page (an SPA) calls itxrest itself, so
- * the script discovers \`/itxrest/<v>/catalog/store/<storeId>/<catalogId>/\`,
- * \`languageId\` and the real API productId from
- * \`performance.getEntriesByType('resource')\` (retrying up to ~6s), falling
- * back to inline-script JSON (\`"storeId"\`/\`"catalogId"\`) and
- * \`window.inditex\` globals. When the page's own \`/product/<id>/detail\` call
- * was captured, that exact URL is re-fetched; otherwise the URL is built from
- * candidate product ids (\`?pelement=\` param, then the l-code digits from the
- * pathname without leading zeros). Variant URLs use \`?cS=<colorId>\` (Pull &
- * Bear's active-color param). Sizeless colors get \`inStock\` from their SKU
- * rows (visibilityValue SHOW) so a perfume isn't flattened to out-of-stock.
- * If the API path fails entirely: defensive DOM fallback.
+ * Shared page script for the newer Inditex SPA platform (Pull & Bear,
+ * Lefties). Layer 1: JSON-LD (name/price/image/stock — also the safety net
+ * for sizeless items like perfume). Layer 2: the itxrest detail API via
+ * in-page same-origin fetch (passes Akamai). Store/catalog IDs are not
+ * hardcoded per se: the page calls itxrest itself, so the script discovers
+ * \`/itxrest/<v>/catalog/store/<storeId>/<catalogId>/\`, \`languageId\` and
+ * the real API productId from \`performance.getEntriesByType('resource')\`
+ * (retrying up to ~10s), falling back to inline-script JSON
+ * (\`"storeId"\`/\`"catalogId"\`), \`window.inditex\` globals, and — when
+ * configured — pinned last-resort IDs. When the page's own
+ * \`/product/<id>/detail\` call was captured, that exact URL is re-fetched;
+ * otherwise the URL is built from candidate product ids (the configured
+ * query param, JSON-LD sku, then the l/p-code digits from the pathname
+ * without leading zeros). Variant URLs use the configured color param.
+ * Sizeless colors get \`inStock\` from their SKU rows (visibilityValue SHOW)
+ * so a perfume isn't flattened to out-of-stock. If the API path fails
+ * entirely: defensive DOM fallback.
  */
-export const PULLANDBEAR_PAGE_SCRIPT = `
+function makeItxrestScript(cfg: ItxrestScriptConfig): string {
+  const altColorParam = cfg.colorParam === "cS" ? "colorId" : "cS";
+  const pinnedBlock = cfg.pinned
+    ? `
+  // Last resort: ${cfg.pinned.note} — discovery above self-heals if Inditex
+  // ever rotates them.
+  if (!storeId || !catalogId) { storeId = '${cfg.pinned.storeId}'; catalogId = '${cfg.pinned.catalogId}'; }`
+    : "";
+  return `
   const out = { name: "", price: null, currency: null, imageUrl: null, colors: [], sizes: [], inStock: false };
   let ldSku = null;
 
@@ -533,8 +555,8 @@ export const PULLANDBEAR_PAGE_SCRIPT = `
 
   // 2) itxrest endpoint discovery — the page's own API calls, via resource timing.
   // The loop also waits for the page's own /product/<id>/detail call: that id is
-  // the only reliable API productId when the URL carries no ?pelement=.
-  let storeId = null, catalogId = null, langId = '-43', apiProductId = null, detailUrl = null, altProductId = null;
+  // the only reliable API productId when the URL carries no ?${cfg.productIdParam}=.
+  let storeId = null, catalogId = null, langId = '${cfg.defaultLangId ?? "-43"}', apiProductId = null, detailUrl = null, altProductId = null;
   try {
     for (let i = 0; i < 20 && !(storeId && apiProductId); i++) {
       for (const e of performance.getEntriesByType('resource')) {
@@ -575,19 +597,16 @@ export const PULLANDBEAR_PAGE_SCRIPT = `
       const l = ix.iLanguageId || ix.languageId;
       if (l != null) langId = String(l);
     }
-  } catch (e) {}
-  // Last resort: TR store/catalog IDs observed live on 2026-07-13 — discovery
-  // above self-heals if Inditex ever rotates them.
-  if (!storeId || !catalogId) { storeId = '25009521'; catalogId = '20309457'; }
+  } catch (e) {}${pinnedBlock}
 
   // 3) Primary: itxrest detail (same-origin fetch passes Akamai).
   try {
     if (storeId && catalogId) {
-      // Candidate API product ids: the page's own detail call, ?pelement=,
-      // JSON-LD sku, then the l-code digits (leading zeros stripped).
+      // Candidate API product ids: the page's own detail call, ?${cfg.productIdParam}=,
+      // JSON-LD sku, then the l/p-code digits (leading zeros stripped).
       const cands = [];
       if (apiProductId) cands.push(apiProductId);
-      const pel = new URL(location.href).searchParams.get('pelement');
+      const pel = new URL(location.href).searchParams.get('${cfg.productIdParam}');
       if (pel && /^\\d+$/.test(pel)) cands.push(pel);
       if (altProductId) cands.push(altProductId);
       if (ldSku) cands.push(ldSku);
@@ -656,7 +675,7 @@ export const PULLANDBEAR_PAGE_SCRIPT = `
           });
           const v = {
             color: String(c.name || c.id || ''),
-            url: location.origin + location.pathname + '?cS=' + c.id,
+            url: location.origin + location.pathname + '?${cfg.colorParam}=' + c.id,
             imageUrl: xmediaImg[String(c.id)] || null,
             sizes,
             price: sizes.length ? sizes[0].price : (rows[0] ? minor(rows[0].price) : null),
@@ -666,9 +685,9 @@ export const PULLANDBEAR_PAGE_SCRIPT = `
           return v;
         }).filter((v) => v.color);
         out.colors = out.colorVariants.map((v) => v.color);
-        // Active color: ?cS= in the URL (Pull & Bear), else colorId, else first.
+        // Active color: ?${cfg.colorParam}= in the URL, else ?${altColorParam}=, else first.
         const q = new URL(location.href).searchParams;
-        const cS = q.get('cS') || q.get('colorId');
+        const cS = q.get('${cfg.colorParam}') || q.get('${altColorParam}');
         let ai = cols.findIndex((c) => String(c.id) === String(cS));
         if (ai < 0) ai = 0;
         const active = out.colorVariants[ai];
@@ -710,9 +729,13 @@ export const PULLANDBEAR_PAGE_SCRIPT = `
   } catch (e) {}
   try {
     if (!out.sizes.length) {
+      // Scope to the FIRST size container only — a page-wide button sweep
+      // merges size chips from recommendation carousels / other products
+      // (e.g. "S M L … ONE SIZE 35 36 37" on Lefties).
+      const cont = document.querySelector('[class*="size-selector" i], [data-qa-anchor*="size" i], [class*="sizeSelector" i]');
       const seen = new Set();
       const domSizes = [];
-      document.querySelectorAll('[class*="size-selector" i] button, [data-qa-anchor*="size" i] button, li[class*="size" i] button').forEach((b) => {
+      (cont ? cont.querySelectorAll('button, li') : []).forEach((b) => {
         const label = (b.textContent || '').trim();
         if (!label || label.length > 12 || seen.has(label)) return;
         seen.add(label);
@@ -731,253 +754,29 @@ export const PULLANDBEAR_PAGE_SCRIPT = `
 
   return out;
 `;
+}
 
-/**
- * Lefties page script. Same architecture as Pull & Bear: Layer 1 JSON-LD
- * (name/price/image/stock safety net), Layer 2 the itxrest detail API via
- * in-page same-origin fetch. Lefties' TR store/catalog IDs are not pinned —
- * the SPA calls itxrest itself, so the script discovers
- * \`/itxrest/<v>/catalog/store/<storeId>/<catalogId>/\`, \`languageId\` and the
- * real API productId from \`performance.getEntriesByType('resource')\`
- * (retrying up to ~10s), falling back to inline-script JSON
- * (\`"storeId"\`/\`"catalogId"\`) and \`window.inditex\` globals. No hardcoded
- * last-resort IDs: without discovered IDs the API step is skipped and the
- * JSON-LD/DOM fallbacks carry the result. Variant URLs use \`?colorId=<id>\`
- * (Lefties' active-color param). Sizeless colors get \`inStock\` from their
- * SKU rows (visibilityValue SHOW). If the API path fails entirely: defensive
- * DOM fallback.
- */
-export const LEFTIES_PAGE_SCRIPT = `
-  const out = { name: "", price: null, currency: null, imageUrl: null, colors: [], sizes: [], inStock: false };
-  let ldSku = null;
+export const PULLANDBEAR_PAGE_SCRIPT = makeItxrestScript({
+  colorParam: "cS",
+  productIdParam: "pelement",
+  pinned: {
+    storeId: "25009521",
+    catalogId: "20309457",
+    note: "P&B TR store/catalog IDs observed live on 2026-07-13",
+  },
+});
 
-  // 1) JSON-LD: name / price / currency / image / stock
-  try {
-    const blocks = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
-    let product = null;
-    for (const b of blocks) {
-      try {
-        const data = JSON.parse(b.textContent || "null");
-        const arr = Array.isArray(data) ? data : (data && data['@graph'] ? data['@graph'] : [data]);
-        for (const n of arr) {
-          const t = n && n['@type'];
-          if (t === 'Product' || (Array.isArray(t) && t.includes('Product'))) { product = n; break; }
-        }
-      } catch (e) {}
-      if (product) break;
-    }
-    if (product) {
-      out.name = product.name || "";
-      if (typeof product.image === 'string') out.imageUrl = product.image;
-      else if (Array.isArray(product.image)) out.imageUrl = product.image[0] || null;
-      const offers = product.offers ? (Array.isArray(product.offers) ? product.offers : [product.offers]) : [];
-      if (offers[0]) {
-        if (offers[0].price != null) out.price = parseFloat(offers[0].price);
-        if (offers[0].priceCurrency) out.currency = offers[0].priceCurrency;
-      }
-      out.inStock = offers.some((o) => typeof o.availability === 'string' && /instock/i.test(o.availability.replace(/[^a-z]/gi, '')));
-      const sku = String(product.productID || product.sku || '');
-      if (/^\\d{6,}$/.test(sku)) ldSku = sku;
-    }
-  } catch (e) {}
-
-  // 2) itxrest endpoint discovery — the page's own API calls, via resource timing.
-  // The loop also waits for the page's own /product/<id>/detail call: that id is
-  // the only reliable API productId when the URL's p-code doesn't match.
-  let storeId = null, catalogId = null, langId = '-43', apiProductId = null, detailUrl = null, altProductId = null;
-  try {
-    for (let i = 0; i < 20 && !(storeId && apiProductId); i++) {
-      for (const e of performance.getEntriesByType('resource')) {
-        const url = String(e.name || '');
-        if (url.indexOf('/itxrest/') < 0) continue;
-        const m = url.match(/\\/itxrest\\/\\d+\\/catalog\\/store\\/(\\d+)\\/(\\d+)\\//);
-        if (m && !storeId) { storeId = m[1]; catalogId = m[2]; }
-        const lm = url.match(/[?&]languageId=(-?\\d+)/);
-        if (lm) langId = lm[1];
-        const pm = url.match(/\\/product\\/(\\d+)\\/detail(?:[?#]|$)/);
-        if (pm) { apiProductId = pm[1]; detailUrl = url; }
-        else if (!altProductId) {
-          const xm = url.match(/\\/product\\/(\\d+)\\/(?:extradetail|stock|sizing-info)/)
-            || url.match(/[?&]productIds=(\\d+)/);
-          if (xm) altProductId = xm[1];
-        }
-      }
-      if (!(storeId && apiProductId)) await __sleep(500);
-    }
-  } catch (e) {}
-  // Fallback: store config embedded in inline scripts.
-  try {
-    if (!storeId) {
-      for (const s of document.querySelectorAll('script:not([src])')) {
-        const txt = s.textContent || '';
-        const sm = txt.match(/["']?(?:i?[sS]toreId)["']?\\s*[:=]\\s*["']?(\\d+)/);
-        const cm = txt.match(/["']?(?:i?[cC]atalogId)["']?\\s*[:=]\\s*["']?(\\d+)/);
-        if (sm && cm) { storeId = sm[1]; catalogId = cm[1]; break; }
-      }
-    }
-  } catch (e) {}
-  // Fallback: legacy Inditex window globals.
-  try {
-    if (!storeId && window.inditex) {
-      const ix = window.inditex;
-      const s = ix.iStoreId || ix.storeId, c = ix.iCatalogId || ix.catalogId;
-      if (s && c) { storeId = String(s); catalogId = String(c); }
-      const l = ix.iLanguageId || ix.languageId;
-      if (l != null) langId = String(l);
-    }
-  } catch (e) {}
-
-  // 3) Primary: itxrest detail (same-origin fetch passes Akamai).
-  try {
-    if (storeId && catalogId) {
-      // Candidate API product ids: the page's own detail call, ?parentId=,
-      // JSON-LD sku, then the p-code digits (leading zeros stripped).
-      const cands = [];
-      if (apiProductId) cands.push(apiProductId);
-      const par = new URL(location.href).searchParams.get('parentId');
-      if (par && /^\\d+$/.test(par)) cands.push(par);
-      if (altProductId) cands.push(altProductId);
-      if (ldSku) cands.push(ldSku);
-      const lm = location.pathname.match(/[lp](\\d+)(?:\\.html)?$/i);
-      if (lm) cands.push(String(parseInt(lm[1], 10)));
-      let data = null;
-      if (detailUrl) {
-        try {
-          const r = await fetch(detailUrl, { headers: { Accept: 'application/json' } });
-          if (r.ok) data = await r.json();
-        } catch (e) {}
-      }
-      for (const id of cands) {
-        if (data && Array.isArray(data.bundleProductSummaries) && data.bundleProductSummaries.length) break;
-        try {
-          const r = await fetch(
-            '/itxrest/2/catalog/store/' + storeId + '/' + catalogId + '/category/0/product/' + id + '/detail?languageId=' + langId,
-            { headers: { Accept: 'application/json' } },
-          );
-          if (r.ok) data = await r.json();
-        } catch (e) {}
-      }
-      const sums = data && Array.isArray(data.bundleProductSummaries) ? data.bundleProductSummaries : [];
-      const detail = (sums[0] && sums[0].detail) || {};
-      const cols = Array.isArray(detail.colors) ? detail.colors : [];
-      // Real product photo per color from detail.xmedia[] (path's last segment
-      // is the colorId; prefer the p/principal media, never r/s crops).
-      const xmediaImg = {};
-      try {
-        (Array.isArray(detail.xmedia) ? detail.xmedia : []).forEach((x) => {
-          const cid = String(x.colorCode || (x.path || '').split('/').filter(Boolean).pop() || '');
-          if (!cid || xmediaImg[cid]) return;
-          const medias = [];
-          (Array.isArray(x.xmediaItems) ? x.xmediaItems : []).forEach((it) => {
-            (Array.isArray(it.medias) ? it.medias : []).forEach((m) => medias.push(m));
-          });
-          const urlOf = (m) => (m && m.extraInfo && m.extraInfo.deliveryUrl) || (m && m.url) || null;
-          const nameOf = (m) => String((m && m.extraInfo && m.extraInfo.originalName) || '');
-          const pick = medias.find((m) => /^p\\d*$/i.test(nameOf(m)) && urlOf(m))
-            || medias.find((m) => !/^(r|s)\\d*$/i.test(nameOf(m)) && urlOf(m));
-          if (!pick) return;
-          try {
-            const u = new URL(urlOf(pick), location.href);
-            u.searchParams.set('w', '800');
-            xmediaImg[cid] = u.toString();
-          } catch (e) { xmediaImg[cid] = urlOf(pick); }
-        });
-      } catch (e) {}
-      if (cols.length) {
-        const minor = (v) => { const n = parseFloat(v); return isFinite(n) ? n / 100 : null; };
-        out.colorVariants = cols.map((c) => {
-          const rows = Array.isArray(c.sizes) ? c.sizes : [];
-          const seen = new Set();
-          const sizes = [];
-          rows.forEach((s) => {
-            const label = String(s.name || '').trim();
-            if (!label) return;
-            const inStock = String(s.visibilityValue || '') === 'SHOW';
-            if (seen.has(label)) {
-              const prev = sizes.find((x) => x.label === label);
-              if (prev && inStock) prev.inStock = true;
-              return;
-            }
-            seen.add(label);
-            sizes.push({ label, inStock, price: minor(s.price) });
-          });
-          const v = {
-            color: String(c.name || c.id || ''),
-            url: location.origin + location.pathname + '?colorId=' + c.id,
-            imageUrl: xmediaImg[String(c.id)] || null,
-            sizes,
-            price: sizes.length ? sizes[0].price : (rows[0] ? minor(rows[0].price) : null),
-          };
-          // Sizeless color: stock from the raw SKU rows.
-          if (!sizes.length && rows.length) v.inStock = rows.some((s) => String(s.visibilityValue || '') === 'SHOW');
-          return v;
-        }).filter((v) => v.color);
-        out.colors = out.colorVariants.map((v) => v.color);
-        // Active color: ?colorId= in the URL (Lefties), else first.
-        const q = new URL(location.href).searchParams;
-        const cS = q.get('colorId') || q.get('cS');
-        let ai = cols.findIndex((c) => String(c.id) === String(cS));
-        if (ai < 0) ai = 0;
-        const active = out.colorVariants[ai];
-        if (active) {
-          if (active.sizes.length) {
-            out.sizes = active.sizes;
-            out.inStock = active.sizes.some((s) => s.inStock);
-          } else if (typeof active.inStock === 'boolean') {
-            out.inStock = active.inStock;
-          }
-          if (active.price != null) out.price = active.price;
-          if (active.imageUrl) out.imageUrl = active.imageUrl;
-        }
-      }
-    }
-  } catch (e) {}
-
-  // 4) Fallback — API gave no variants: DOM color swatches + size buttons.
-  try {
-    if (!out.colorVariants || !out.colorVariants.length) {
-      const vars = [];
-      const seen = new Set();
-      document.querySelectorAll('[data-qa-anchor*="color" i] li, [class*="color-selector" i] li, [class*="colorSelector" i] li').forEach((li) => {
-        const a = li.querySelector('a, button');
-        const img = li.querySelector('img');
-        const name = ((a && a.getAttribute('aria-label')) || (img && img.alt) || '').trim();
-        if (!name || seen.has(name)) return;
-        seen.add(name);
-        vars.push({
-          color: name,
-          url: a && a.href ? a.href : null,
-        });
-      });
-      if (vars.length) {
-        out.colorVariants = vars;
-        out.colors = vars.map((v) => v.color);
-      }
-    }
-  } catch (e) {}
-  try {
-    if (!out.sizes.length) {
-      const seen = new Set();
-      const domSizes = [];
-      document.querySelectorAll('[class*="size-selector" i] button, [data-qa-anchor*="size" i] button, li[class*="size" i] button').forEach((b) => {
-        const label = (b.textContent || '').trim();
-        if (!label || label.length > 12 || seen.has(label)) return;
-        seen.add(label);
-        const cls = (b.className || '').toString();
-        const inStock = !b.disabled
-          && b.getAttribute('aria-disabled') !== 'true'
-          && !/disabled|out-of-stock|sold|tüken/i.test(cls);
-        domSizes.push({ label, inStock });
-      });
-      if (domSizes.length) {
-        out.sizes = domSizes;
-        out.inStock = domSizes.some((s) => s.inStock);
-      }
-    }
-  } catch (e) {}
-
-  return out;
-`;
+export const LEFTIES_PAGE_SCRIPT = makeItxrestScript({
+  colorParam: "colorId",
+  productIdParam: "parentId",
+  pinned: {
+    storeId: "94009021",
+    catalogId: "90009064",
+    note: "Lefties TR store/catalog IDs observed live on 2026-07-17",
+  },
+  // The TR site serves /tr/en (English) — the store's own calls use -1.
+  defaultLangId: "-1",
+});
 
 /**
  * SHARED core for non-Inditex stores: name/price/currency/image/stock via

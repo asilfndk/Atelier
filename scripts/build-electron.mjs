@@ -1,6 +1,7 @@
 import esbuild from "esbuild";
 
 const watch = process.argv.includes("--watch");
+const liveTest = process.argv.includes("--live-test");
 
 /** @type {import('esbuild').BuildOptions} */
 const common = {
@@ -19,6 +20,12 @@ const entries = [
   { in: "electron/main.ts", out: "dist-electron/main.js" },
   { in: "electron/preload.ts", out: "dist-electron/preload.js" },
 ];
+// The live-test harness is dev-only — bundled on demand (npm run live-test),
+// not as part of the packaged build.
+if (liveTest) {
+  entries.length = 0;
+  entries.push({ in: "electron/live-test.ts", out: "dist-electron/live-test.js" });
+}
 
 for (const e of entries) {
   const opts = { ...common, entryPoints: [e.in], outfile: e.out };

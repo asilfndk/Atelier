@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Tag, Trash2 } from "lucide-react";
 import { getApi } from "@/lib/client-api";
+import { ProductImage } from "@/components/ProductImage";
 import { BRAND_LABELS, formatPrice, timeAgo } from "@/lib/brands";
 import { cn } from "@/lib/cn";
 import type { TrackedProduct } from "@/types/global";
@@ -62,7 +63,13 @@ export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
           >
             <div className="flex items-start gap-3">
               {/* key: remounts when the URL changes, resetting the failed state */}
-              <Thumb key={p.imageUrl ?? "none"} imageUrl={p.imageUrl} name={p.name} />
+              <ProductImage
+                key={p.imageUrl ?? "none"}
+                imageUrl={p.imageUrl}
+                name={p.name}
+                className="w-10 shrink-0"
+                fallback="—"
+              />
               <div className="min-w-0 flex-1">
                 {/* Status dot on the left — the top-right corner is reserved for the hover trash button. */}
                 <div className="flex items-center gap-1.5 pr-5">
@@ -115,35 +122,6 @@ export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
         </li>
       ))}
     </ul>
-  );
-}
-
-function Thumb({
-  imageUrl,
-  name,
-}: {
-  imageUrl: string | null;
-  name: string | null;
-}) {
-  const [failed, setFailed] = useState(false);
-
-  return (
-    <div className="aspect-[3/4] w-10 shrink-0 overflow-hidden border border-hairline bg-paper">
-      {imageUrl && !failed ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={imageUrl}
-          alt={name ?? "Product image"}
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        <div className="flex h-full items-center justify-center font-mono text-[10px] text-muted">
-          —
-        </div>
-      )}
-    </div>
   );
 }
 

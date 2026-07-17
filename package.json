@@ -1,6 +1,6 @@
 {
   "name": "inditex-tracker",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "private": true,
   "description": "Stock & price tracking app for Zara, Bershka, Stradivarius, Pull & Bear, Lefties, Mango, Sephora, SneaksUp, Tommy Hilfiger, Victoria's Secret, Boyner, Wunder, Superstep, Gratis and Watsons",
   "author": "Atelier",
@@ -20,6 +20,8 @@
     "gen:icons": "node scripts/gen-icons.mjs",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "live-test": "node scripts/build-electron.mjs --live-test && electron dist-electron/live-test.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"
@@ -28,7 +30,6 @@
     "better-sqlite3": "^12.11.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
-    "framer-motion": "^12.40.0",
     "lucide-react": "^1.21.0",
     "next": "16.2.9",
     "node-cron": "^3.0.3",

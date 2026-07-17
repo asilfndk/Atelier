@@ -74,7 +74,7 @@ async function checkOne(p: TrackedProduct): Promise<void> {
       baseline != null &&
       effPrice < baseline
     ) {
-      notifyPriceDrop(p.name ?? "Your item", p.id, baseline, effPrice);
+      notifyPriceDrop(p.name ?? "Your item", p.id, baseline, effPrice, res.currency);
     }
     // Baseline maintenance is independent of notification switches — keep it always correct.
     if (baseline == null || effPrice < baseline) {

@@ -6,6 +6,7 @@ import { getApi } from "@/lib/client-api";
 import { formatPrice } from "@/lib/brands";
 import { cn } from "@/lib/cn";
 import type { ScrapeResult } from "@/types/global";
+import { ProductImage } from "./ProductImage";
 import { StockMatrix } from "./StockMatrix";
 
 interface Props {
@@ -379,31 +380,3 @@ function Toggle({
   );
 }
 
-function ProductImage({
-  imageUrl,
-  name,
-}: {
-  imageUrl: string | null;
-  name: string;
-}) {
-  const [failed, setFailed] = useState(false);
-
-  return (
-    <div className="aspect-[3/4] overflow-hidden border border-hairline bg-paper">
-      {imageUrl && !failed ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={imageUrl}
-          alt={name}
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-muted">
-          No image
-        </div>
-      )}
-    </div>
-  );
-}

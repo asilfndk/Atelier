@@ -49,6 +49,8 @@ if (!gotLock) {
   });
 
   app.whenReady().then(async () => {
+    const { initFileLog } = await import("./log");
+    initFileLog();
     // Menu-bar app: never show in the Dock (LSUIElement is also set in Info.plist).
     // Even with the window open, the app is managed from the menu-bar bag icon only.
     if (app.dock) app.dock.hide();

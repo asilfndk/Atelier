@@ -79,13 +79,14 @@ function applyRealisticHeaders(win: import("electron").BrowserWindow): void {
 export async function scrapeWithBrowser(
   url: string,
   pageScript: string,
-  timeoutMs = 25000,
+  // Budget must cover load + settle + in-page waits: the itxrest scripts
+  // (P&B/Lefties) alone may spend ~10s discovering endpoints.
+  timeoutMs = 35000,
 ): Promise<ProductStock> {
   const { BrowserWindow } = loadElectron();
 
   await acquire();
   let win: import("electron").BrowserWindow | null = null;
-  const timer: NodeJS.Timeout | null = null;
 
   try {
     win = new BrowserWindow({
@@ -118,7 +119,6 @@ export async function scrapeWithBrowser(
     }
     return parsed.data;
   } finally {
-    if (timer) clearTimeout(timer);
     if (win && !win.isDestroyed()) win.destroy();
     release();
   }
@@ -148,8 +148,18 @@ async function loadAndExtract(
   await Promise.race([load, domReady]);
   // If dom-ready wins the race, load may be left orphaned and reject — swallow it.
   void load.catch(() => {});
-  // Wait for the page to populate its JS state (JSON-LD).
-  await new Promise((r) => setTimeout(r, 3000));
+  // Wait for the page to populate its JS state — poll for JSON-LD instead of a
+  // flat sleep so ready pages don't pay the full 3s.
+  for (let i = 0; i < 10; i++) {
+    const hasLd = await win.webContents
+      .executeJavaScript(
+        `!!document.querySelector('script[type="application/ld+json"]')`,
+        true,
+      )
+      .catch(() => false);
+    if (hasLd) break;
+    await new Promise((r) => setTimeout(r, 300));
+  }
   // async wrapper: brand scripts may await to open the size panel.
   return win.webContents.executeJavaScript(
     `(async function(){
@@ -161,15 +171,21 @@ async function loadAndExtract(
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  // Clear the timer once the race settles — a leftover 35s timeout would pin
+  // the event loop after every successful scrape.
+  let timer: NodeJS.Timeout;
   return Promise.race([
     p,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`The check timed out after ${Math.round(ms / 1000)}s.`)), ms),
-    ),
-  ]);
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`The check timed out after ${Math.round(ms / 1000)}s.`)),
+        ms,
+      );
+    }),
+  ]).finally(() => clearTimeout(timer));
 }
 
-/** Normalizes raw page data into ProductStock (shared by browser + JSON-LD) */
+/** Normalizes raw page data into ProductStock (used by the browser path only) */
 export function normalizeRaw(raw: unknown): unknown {
   if (raw && typeof raw === "object" && "__error" in raw) {
     throw new Error(

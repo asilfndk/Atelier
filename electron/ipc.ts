@@ -1,4 +1,5 @@
 import { ipcMain, shell } from "electron";
+import { z } from "zod";
 import { checkUrl, getScraperForUrl } from "@/lib/scrapers";
 import {
   getSettings,
@@ -23,6 +24,26 @@ import {
   startAutoUpdateChecks,
   stopAutoUpdateChecks,
 } from "./updater";
+
+// Runtime validation of renderer payloads (defense-in-depth: the renderer is
+// local, but an untyped patch reaching Drizzle's .set() must never carry
+// arbitrary columns).
+const productPatchSchema = z
+  .object({
+    trackStock: z.boolean().optional(),
+    trackPrice: z.boolean().optional(),
+  })
+  .strict();
+
+const settingsPatchSchema = z
+  .object({
+    checkIntervalCron: z.string().max(100).optional(),
+    autolaunch: z.boolean().optional(),
+    notifyStock: z.boolean().optional(),
+    notifyPrice: z.boolean().optional(),
+    autoUpdateCheck: z.boolean().optional(),
+  })
+  .strict();
 
 /**
  * Renderer ↔ Main bridge. All channels are whitelisted and exposed through
@@ -61,7 +82,7 @@ export function registerIpc(): void {
       id: number,
       patch: Partial<Pick<TrackedProduct, "trackStock" | "trackPrice">>,
     ) => {
-      const product = updateProduct(id, patch);
+      const product = updateProduct(id, productPatchSchema.parse(patch));
       emitProductsChanged();
       return product;
     },
@@ -72,7 +93,7 @@ export function registerIpc(): void {
   ipcMain.handle("get-settings", async () => getSettings());
 
   ipcMain.handle("set-settings", async (_e, patch) => {
-    const next = updateSettings(patch);
+    const next = updateSettings(settingsPatchSchema.parse(patch));
     if ("checkIntervalCron" in patch) reschedule();
     if ("autolaunch" in patch) setAutoLaunch(next.autolaunch);
     if ("autoUpdateCheck" in patch) {
@@ -93,7 +114,12 @@ export function registerIpc(): void {
   });
 
   ipcMain.handle("open-external", async (_e, url: string) => {
-    await shell.openExternal(url);
+    // Never hand file:/custom schemes to the OS.
+    const u = new URL(String(url));
+    if (u.protocol !== "http:" && u.protocol !== "https:") {
+      throw new Error("Only http(s) links can be opened.");
+    }
+    await shell.openExternal(u.toString());
     return { ok: true };
   });
 

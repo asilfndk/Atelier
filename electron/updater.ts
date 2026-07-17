@@ -1,5 +1,6 @@
 import { execFile, spawn } from "node:child_process";
-import { createWriteStream } from "node:fs";
+import { createHash } from "node:crypto";
+import { createReadStream, createWriteStream } from "node:fs";
 import { readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
@@ -119,9 +120,44 @@ export async function checkForUpdate(): Promise<UpdateState> {
   return getUpdateState();
 }
 
+/**
+ * The DMG's expected sha512 (base64) from the release's latest-mac.yml.
+ * The app is unsigned, so this checksum is the only integrity check the
+ * downloaded update gets — a corrupt or tampered asset must not be installed.
+ */
+async function expectedSha512(
+  release: Release,
+  assetName: string,
+): Promise<string | null> {
+  const yml = release.assets.find((a) => a.name === "latest-mac.yml");
+  if (!yml) return null;
+  try {
+    const res = await fetch(yml.browser_download_url, {
+      headers: { "User-Agent": "atelier-app" },
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    const esc = assetName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const m = text.match(
+      new RegExp(`url:\\s*${esc}\\s*\\n\\s*sha512:\\s*(\\S+)`),
+    );
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fileSha512(path: string): Promise<string> {
+  const hash = createHash("sha512");
+  await pipeline(createReadStream(path), hash);
+  return hash.digest("base64");
+}
+
 /** Download the .dmg for the current architecture and install it. */
 export async function downloadUpdate(): Promise<UpdateState> {
-  if (state.status === "downloading") return getUpdateState();
+  if (state.status === "downloading" || state.status === "installing") {
+    return getUpdateState();
+  }
   const release = latestRelease;
   if (!release) {
     setState({ status: "error", error: "Check for updates first." });
@@ -172,6 +208,20 @@ export async function downloadUpdate(): Promise<UpdateState> {
       Readable.fromWeb(res.body.pipeThrough(progress) as never),
       createWriteStream(dmgPath),
     );
+
+    // Integrity: compare against latest-mac.yml's sha512 before installing.
+    const expected = await expectedSha512(release, asset.name);
+    if (expected) {
+      const actual = await fileSha512(dmgPath);
+      if (actual !== expected) {
+        await rm(dmgPath, { force: true });
+        throw new Error(
+          "The downloaded update failed its integrity check (sha512 mismatch).",
+        );
+      }
+    } else {
+      console.warn("[updater] no sha512 found for", asset.name, "— installing unverified");
+    }
 
     // Download complete — install over itself and restart.
     setState({ status: "installing", percent: 100 });

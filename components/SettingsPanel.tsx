@@ -27,6 +27,14 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     return getApi().onUpdateState(setUpdate);
   }, []);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   async function patch(p: Partial<Omit<AppSettings, "id">>) {
     const next = await getApi().setSettings(p);
     setS(next);
@@ -34,9 +42,19 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
 
   if (!s) return null;
 
+  const isPresetInterval = INTERVALS.some((it) => it.cron === s.checkIntervalCron);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-ink/20 pt-24">
-      <div className="w-full max-w-md border border-hairline bg-paper-raised p-6 shadow-2xl">
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center bg-ink/20 pt-24"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Settings"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md border border-hairline bg-paper-raised p-6 shadow-2xl">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl font-semibold text-ink">Settings</h2>
           <button
@@ -66,6 +84,14 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 {it.label}
               </button>
             ))}
+            {!isPresetInterval && (
+              <span
+                className="border border-ink bg-ink px-3 py-1.5 font-mono text-xs text-paper-raised"
+                title={s.checkIntervalCron}
+              >
+                custom
+              </span>
+            )}
           </div>
         </Section>
 
