@@ -242,10 +242,23 @@ async function installUpdate(dmgPath: string): Promise<void> {
     );
 
     // Once the app exits, swap the old bundle with the new one and relaunch.
+    // The old bundle is renamed aside first and restored if the swap fails —
+    // deleting it up front would leave the user with no app at all when the
+    // mv errors (cross-volume, permissions, corrupt staging).
+    const swapLog = join(app.getPath("temp"), "atelier-update.log");
     const script = `
+      exec >> "${swapLog}" 2>&1
+      echo "[swap] $(date) staging=${staging} target=${target}"
       while kill -0 ${process.pid} 2>/dev/null; do sleep 0.3; done
-      rm -rf "${target}"
-      mv "${staging}" "${target}"
+      rm -rf "${target}.bak"
+      mv "${target}" "${target}.bak" || exit 1
+      if mv "${staging}" "${target}"; then
+        rm -rf "${target}.bak"
+        echo "[swap] ok"
+      else
+        echo "[swap] failed — restoring previous version"
+        mv "${target}.bak" "${target}"
+      fi
       open "${target}"
     `;
     spawn("/bin/bash", ["-c", script], {

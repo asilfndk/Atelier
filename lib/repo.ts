@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   checkHistory,
@@ -41,14 +41,20 @@ export interface TrackInput {
  * exists, returns it (duplicate-record guard — edge case #1).
  */
 export function trackProduct(input: TrackInput): TrackedProduct {
+  // NULL target columns need IS NULL — `eq(col, "")` never matches a stored
+  // NULL, which used to allow duplicate size/color-less tracks.
   const existing = db
     .select()
     .from(trackedProducts)
     .where(
       and(
         eq(trackedProducts.url, input.url),
-        eq(trackedProducts.targetSize, input.targetSize ?? ""),
-        eq(trackedProducts.targetColor, input.targetColor ?? ""),
+        input.targetSize
+          ? eq(trackedProducts.targetSize, input.targetSize)
+          : isNull(trackedProducts.targetSize),
+        input.targetColor
+          ? eq(trackedProducts.targetColor, input.targetColor)
+          : isNull(trackedProducts.targetColor),
       ),
     )
     .get();
@@ -94,6 +100,10 @@ export function untrackProduct(id: number): void {
   db.delete(trackedProducts).where(eq(trackedProducts.id, id)).run();
 }
 
+/** History rows kept per product — at the default 15-min cron ≈ 5 days of
+ * checks; the price chart reads at most 50 rows, so 500 is generous. */
+const HISTORY_KEEP = 500;
+
 /** Record a check result in history and update the product's latest state */
 export function recordCheck(
   id: number,
@@ -103,7 +113,6 @@ export function recordCheck(
   colors?: string[] | null,
   imageUrl?: string | null,
 ): void {
-  db.insert(checkHistory).values({ productId: id, inStock, price }).run();
   // If price is null, leave lastPrice alone: a broken scrape must not wipe
   // the last known good price (and the price-drop comparison).
   const patch: Partial<TrackedProduct> = {
@@ -115,7 +124,22 @@ export function recordCheck(
   if (colors && colors.length > 0) patch.lastColors = JSON.stringify(colors);
   // If imageUrl is empty/null, leave it alone: a broken scrape must not wipe the existing image.
   if (imageUrl) patch.imageUrl = imageUrl;
-  db.update(trackedProducts).set(patch).where(eq(trackedProducts.id, id)).run();
+  db.transaction((tx) => {
+    tx.insert(checkHistory).values({ productId: id, inStock, price }).run();
+    tx.update(trackedProducts).set(patch).where(eq(trackedProducts.id, id)).run();
+    // Retention: the table grows one row per product per check, forever.
+    tx.delete(checkHistory)
+      .where(
+        and(
+          eq(checkHistory.productId, id),
+          lt(
+            checkHistory.id,
+            sql`(select min(id) from (select id from check_history where product_id = ${id} order by id desc limit ${HISTORY_KEEP}))`,
+          ),
+        ),
+      )
+      .run();
+  });
 }
 
 export function priceHistory(id: number, limit = 50) {

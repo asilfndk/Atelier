@@ -15,9 +15,17 @@ const DEFAULT_CRON = "*/15 * * * *";
 let task: ScheduledTask | null = null;
 let running = false;
 
-/** Stock of the target size if one is set, otherwise the overall stock status. */
-function effectiveInStock(p: TrackedProduct, res: ScrapeResult): boolean {
+/**
+ * Stock of the target size if one is set, otherwise the overall stock status.
+ * Returns null (= unknown, keep previous state) when a target size is set but
+ * the scrape produced no size list at all — a transient parse miss would
+ * otherwise record out-of-stock and fire a false restock on the next round.
+ * A non-empty list that lacks the target size still counts as out-of-stock
+ * (some stores drop sold-out sizes from the list).
+ */
+function effectiveInStock(p: TrackedProduct, res: ScrapeResult): boolean | null {
   if (p.targetSize) {
+    if (!res.sizes.length) return null;
     const match = res.sizes.find(
       (s) => s.label.toLowerCase() === p.targetSize!.toLowerCase(),
     );
@@ -36,8 +44,8 @@ async function checkOne(p: TrackedProduct): Promise<void> {
     return;
   }
 
-  const nowInStock = effectiveInStock(p, res);
   const wasInStock = p.lastInStock ?? false;
+  const nowInStock = effectiveInStock(p, res) ?? wasInStock;
   // Global notification switches (from settings); evaluated together with per-product track*.
   const s = getSettings();
 
@@ -89,7 +97,14 @@ export async function checkAll(): Promise<void> {
     await Promise.all(
       Array.from({ length: CHECK_CONCURRENCY }, async () => {
         for (let p = queue.shift(); p; p = queue.shift()) {
-          await checkOne(p);
+          try {
+            await checkOne(p);
+          } catch (err) {
+            // Isolate per product: a DB error (e.g. FK violation when the user
+            // untracks mid-round) must not reject the whole round and skip the
+            // badge/renderer refresh.
+            console.warn(`[scheduler] ${p.brand} #${p.id} failed:`, err);
+          }
         }
       }),
     );

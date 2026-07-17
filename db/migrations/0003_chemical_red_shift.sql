@@ -1,0 +1,1 @@
+CREATE INDEX `check_history_product_id_idx` ON `check_history` (`product_id`);

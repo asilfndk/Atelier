@@ -44,11 +44,13 @@ export interface ProductStock {
   colors: string[];
   sizes: SizeAvailability[];
   inStock: boolean;
-  /** Per-color image/sizes/URL (produced by Zara, Mango and Sephora) */
+  /** Per-color image/sizes/URL (Zara, Bershka, Pull & Bear, Lefties, Mango, Sephora…) */
   colorVariants?: ColorVariant[];
 }
 
 export interface ScrapeResult extends ProductStock {
+  /** "cache" is renderer-only: page.tsx synthesizes it when showing the last
+   * DB state — the main-side type (lib/scrapers/types.ts) is "api"|"browser". */
   source: "api" | "browser" | "cache";
 }
 

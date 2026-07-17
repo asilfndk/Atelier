@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  index,
   integer,
   real,
   sqliteTable,
@@ -89,17 +90,21 @@ export const settings = sqliteTable("settings", {
 });
 
 /** History record of every check (price chart + change detection) */
-export const checkHistory = sqliteTable("check_history", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  productId: integer("product_id")
-    .notNull()
-    .references(() => trackedProducts.id, { onDelete: "cascade" }),
-  inStock: integer("in_stock", { mode: "boolean" }),
-  price: real("price"),
-  checkedAt: integer("checked_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
+export const checkHistory = sqliteTable(
+  "check_history",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => trackedProducts.id, { onDelete: "cascade" }),
+    inStock: integer("in_stock", { mode: "boolean" }),
+    price: real("price"),
+    checkedAt: integer("checked_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [index("check_history_product_id_idx").on(t.productId)],
+);
 
 export type TrackedProduct = typeof trackedProducts.$inferSelect;
 export type NewTrackedProduct = typeof trackedProducts.$inferInsert;
