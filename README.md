@@ -6,10 +6,10 @@ Atelier lives in the menu bar (it never shows in the Dock — `LSUIElement`), so
 
 ## Supported stores
 
-| | |
-|---|---|
-| **Inditex** | Zara · Bershka · Stradivarius · Pull & Bear · Lefties |
-| **Others** | Mango · Sephora · SneaksUp · Tommy Hilfiger · Victoria's Secret · Boyner · Wunder · Superstep · Gratis · Watsons |
+|             |                                                                                                                  |
+| ----------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Inditex** | Zara · Bershka · Stradivarius · Pull & Bear · Lefties                                                            |
+| **Others**  | Mango · Sephora · SneaksUp · Tommy Hilfiger · Victoria's Secret · Boyner · Wunder · Superstep · Gratis · Watsons |
 
 ## Features
 
@@ -95,16 +95,16 @@ npm run dist:x64
 
 ### Scripts
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Next dev + Electron together (`concurrently`) |
-| `npm run build` | Build renderer + main |
-| `npm run dist` | Package macOS `.dmg` (arm64 + x64) |
-| `npm run rebuild` | Rebuild `better-sqlite3` against the Electron ABI |
-| `npm run lint` | ESLint |
-| `npm run db:generate` | Generate a Drizzle migration |
-| `npm run db:migrate` | Apply migrations (dev) |
-| `npm run db:studio` | Drizzle Studio |
+| Command               | Description                                       |
+| --------------------- | ------------------------------------------------- |
+| `npm run dev`         | Next dev + Electron together (`concurrently`)     |
+| `npm run build`       | Build renderer + main                             |
+| `npm run dist`        | Package macOS `.dmg` (arm64 + x64)                |
+| `npm run rebuild`     | Rebuild `better-sqlite3` against the Electron ABI |
+| `npm run lint`        | ESLint                                            |
+| `npm run db:generate` | Generate a Drizzle migration                      |
+| `npm run db:migrate`  | Apply migrations (dev)                            |
+| `npm run db:studio`   | Drizzle Studio                                    |
 
 ### Adding a new store scraper
 

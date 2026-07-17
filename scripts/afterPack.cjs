@@ -34,9 +34,12 @@ const path = require("node:path");
  */
 
 const MACHO_MAGICS = new Set([
-  0xfeedface, 0xcefaedfe, // 32-bit
-  0xfeedfacf, 0xcffaedfe, // 64-bit
-  0xcafebabe, 0xbebafeca, // fat/universal
+  0xfeedface,
+  0xcefaedfe, // 32-bit
+  0xfeedfacf,
+  0xcffaedfe, // 64-bit
+  0xcafebabe,
+  0xbebafeca, // fat/universal
 ]);
 
 function isMachO(filePath) {
@@ -96,7 +99,8 @@ exports.default = async function afterPack(context) {
   // 4. Outer app last: binds Info.plist + bundle id, with a DR that is stable
   //    across releases (identifier-based, not cdhash-based).
   sign(appPath, [
-    "--identifier", bundleId,
+    "--identifier",
+    bundleId,
     "-r=" + `designated => identifier "${bundleId}"`,
   ]);
 

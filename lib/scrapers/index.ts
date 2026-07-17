@@ -125,7 +125,8 @@ const scrapers: BaseScraper[] = [
     // /tr/tr/p/.../27045166/99/00 → first 6+ digit segment is the product code
     parse: (u) => {
       const parts = u.pathname.split("/").filter(Boolean);
-      const productId = parts.find((s) => /^\d{6,}$/.test(s)) ?? parts.pop() ?? "";
+      const productId =
+        parts.find((s) => /^\d{6,}$/.test(s)) ?? parts.pop() ?? "";
       return productId ? { productId } : null;
     },
   }),

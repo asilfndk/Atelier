@@ -931,7 +931,8 @@ const GENERIC_SIZE_BLOCK = `
  * Platform-agnostic extraction for generic non-Inditex TR e-commerce sites
  * (T-Soft, Ikas, SFCC etc.): shared core + best-effort size block.
  */
-export const GENERIC_PAGE_SCRIPT = STORE_CORE_SCRIPT + GENERIC_SIZE_BLOCK + "\n  return out;\n";
+export const GENERIC_PAGE_SCRIPT =
+  STORE_CORE_SCRIPT + GENERIC_SIZE_BLOCK + "\n  return out;\n";
 
 /**
  * SneaksUp (Ticimax) size block: `.size-options-item`; an in-stock item carries
@@ -956,7 +957,8 @@ const SNEAKSUP_SIZE_BLOCK = `
   } catch (e) {}
 `;
 
-export const SNEAKSUP_PAGE_SCRIPT = STORE_CORE_SCRIPT + SNEAKSUP_SIZE_BLOCK + "\n  return out;\n";
+export const SNEAKSUP_PAGE_SCRIPT =
+  STORE_CORE_SCRIPT + SNEAKSUP_SIZE_BLOCK + "\n  return out;\n";
 
 /**
  * Boyner (React/CSS-module) size block: row `[class*="selectSizeOption__"]`,
@@ -987,7 +989,8 @@ const BOYNER_SIZE_BLOCK = `
   } catch (e) {}
 `;
 
-export const BOYNER_PAGE_SCRIPT = STORE_CORE_SCRIPT + BOYNER_SIZE_BLOCK + "\n  return out;\n";
+export const BOYNER_PAGE_SCRIPT =
+  STORE_CORE_SCRIPT + BOYNER_SIZE_BLOCK + "\n  return out;\n";
 
 /**
  * Wunder (Ikas) size block: `.variant-types` elements; size text is `.variant-name`.
@@ -1016,7 +1019,8 @@ const WUNDER_SIZE_BLOCK = `
   } catch (e) {}
 `;
 
-export const WUNDER_PAGE_SCRIPT = STORE_CORE_SCRIPT + WUNDER_SIZE_BLOCK + "\n  return out;\n";
+export const WUNDER_PAGE_SCRIPT =
+  STORE_CORE_SCRIPT + WUNDER_SIZE_BLOCK + "\n  return out;\n";
 
 /**
  * Victoria's Secret size block: real sizes live in `.size_box` elements
@@ -1213,7 +1217,8 @@ const MANGO_BLOCK = `
   } catch (e) {}
 `;
 
-export const MANGO_PAGE_SCRIPT = STORE_CORE_SCRIPT + MANGO_BLOCK + "\n  return out;\n";
+export const MANGO_PAGE_SCRIPT =
+  STORE_CORE_SCRIPT + MANGO_BLOCK + "\n  return out;\n";
 
 /**
  * Sephora TR (Next.js RSC) block: no JSON-LD Product; the primary source is the
@@ -1372,7 +1377,8 @@ const SEPHORA_BLOCK = `
   } catch (e) {}
 `;
 
-export const SEPHORA_PAGE_SCRIPT = STORE_CORE_SCRIPT + SEPHORA_BLOCK + "\n  return out;\n";
+export const SEPHORA_PAGE_SCRIPT =
+  STORE_CORE_SCRIPT + SEPHORA_BLOCK + "\n  return out;\n";
 
 /**
  * Gratis (Next.js RSC) block: JSON-LD Product exists but its \`price\` is a
@@ -1481,4 +1487,5 @@ const GRATIS_BLOCK = `
   } catch (e) {}
 `;
 
-export const GRATIS_PAGE_SCRIPT = STORE_CORE_SCRIPT + GRATIS_BLOCK + "\n  return out;\n";
+export const GRATIS_PAGE_SCRIPT =
+  STORE_CORE_SCRIPT + GRATIS_BLOCK + "\n  return out;\n";

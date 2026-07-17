@@ -32,8 +32,10 @@ export function notifyRestock(
   size?: string | null,
 ): void {
   const sizeStr = size ? ` (${size})` : "";
-  notify("Back in stock 🎉", `${name}${sizeStr} is available again — grab it while it lasts.`, () =>
-    openProduct(productId),
+  notify(
+    "Back in stock 🎉",
+    `${name}${sizeStr} is available again — grab it while it lasts.`,
+    () => openProduct(productId),
   );
 }
 

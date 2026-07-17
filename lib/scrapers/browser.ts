@@ -115,7 +115,9 @@ export async function scrapeWithBrowser(
     const normalized = normalizeRaw(raw);
     const parsed = productStockSchema.safeParse(normalized);
     if (!parsed.success) {
-      throw new Error(`Page data does not match the schema: ${parsed.error.message}`);
+      throw new Error(
+        `Page data does not match the schema: ${parsed.error.message}`,
+      );
     }
     return parsed.data;
   } finally {
@@ -178,7 +180,10 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
     p,
     new Promise<T>((_, reject) => {
       timer = setTimeout(
-        () => reject(new Error(`The check timed out after ${Math.round(ms / 1000)}s.`)),
+        () =>
+          reject(
+            new Error(`The check timed out after ${Math.round(ms / 1000)}s.`),
+          ),
         ms,
       );
     }),

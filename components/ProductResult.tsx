@@ -152,9 +152,7 @@ export function ProductResult({
       // product-wide one (same rule as scheduler.effectiveInStock) — so tracking a
       // sold-out size turns the list dot red immediately.
       const targetSize = size
-        ? activeSizes.find(
-            (s) => s.label.toLowerCase() === size.toLowerCase(),
-          )
+        ? activeSizes.find((s) => s.label.toLowerCase() === size.toLowerCase())
         : null;
       const effectiveInStock = targetSize ? targetSize.inStock : activeInStock;
       await getApi().track({
@@ -166,10 +164,7 @@ export function ProductResult({
         trackStock: notifyStock,
         trackPrice: notifyPrice,
         lastPrice:
-          targetSize?.price ??
-          fetched?.price ??
-          variant?.price ??
-          result.price,
+          targetSize?.price ?? fetched?.price ?? variant?.price ?? result.price,
         lastInStock: effectiveInStock,
         sizes: activeSizes,
         colors: result.colors,
@@ -223,9 +218,7 @@ export function ProductResult({
         <p className="mt-1 font-display text-4xl font-light tracking-tight text-ink">
           {formatPrice(
             // If the selected size has its own price (e.g. Sephora ml sizes), show it
-            (size
-              ? activeSizes.find((s) => s.label === size)?.price
-              : null) ??
+            (size ? activeSizes.find((s) => s.label === size)?.price : null) ??
               fetched?.price ??
               variant?.price ??
               result.price,
@@ -379,4 +372,3 @@ function Toggle({
     </button>
   );
 }
-

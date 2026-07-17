@@ -131,7 +131,11 @@ function StockDot({ inStock }: { inStock: boolean | null }) {
       title={inStock ? "In stock" : inStock === false ? "Sold out" : "Unknown"}
       className={cn(
         "h-1.5 w-1.5 shrink-0 rounded-full",
-        inStock ? "bg-in-stock" : inStock === false ? "bg-signal" : "bg-hairline",
+        inStock
+          ? "bg-in-stock"
+          : inStock === false
+            ? "bg-signal"
+            : "bg-hairline",
       )}
     />
   );

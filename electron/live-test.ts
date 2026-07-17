@@ -100,7 +100,9 @@ app.whenReady().then(async () => {
     }
 
     if (!target) {
-      console.log("  → no product link found (bot block or different structure)");
+      console.log(
+        "  → no product link found (bot block or different structure)",
+      );
       continue;
     }
     console.log("  scrape:", target);

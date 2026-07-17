@@ -13,7 +13,7 @@ inside Atelier to check.
 Open **System Settings → Notifications** and look for **Atelier**:
 
 - **Listed but turned off** → turn "Allow notifications" on. Done.
-- **Listed and on, still nothing** → check the *style* is "Banners" or
+- **Listed and on, still nothing** → check the _style_ is "Banners" or
   "Alerts" (not "None"), and that Focus/Do Not Disturb is off.
 - **Not listed at all** → the app never managed to register; continue below.
 

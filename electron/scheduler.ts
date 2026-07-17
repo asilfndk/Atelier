@@ -23,7 +23,10 @@ let running = false;
  * A non-empty list that lacks the target size still counts as out-of-stock
  * (some stores drop sold-out sizes from the list).
  */
-function effectiveInStock(p: TrackedProduct, res: ScrapeResult): boolean | null {
+function effectiveInStock(
+  p: TrackedProduct,
+  res: ScrapeResult,
+): boolean | null {
   if (p.targetSize) {
     if (!res.sizes.length) return null;
     const match = res.sizes.find(
@@ -74,7 +77,13 @@ async function checkOne(p: TrackedProduct): Promise<void> {
       baseline != null &&
       effPrice < baseline
     ) {
-      notifyPriceDrop(p.name ?? "Your item", p.id, baseline, effPrice, res.currency);
+      notifyPriceDrop(
+        p.name ?? "Your item",
+        p.id,
+        baseline,
+        effPrice,
+        res.currency,
+      );
     }
     // Baseline maintenance is independent of notification switches — keep it always correct.
     if (baseline == null || effPrice < baseline) {

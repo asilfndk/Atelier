@@ -20,6 +20,8 @@
     "gen:icons": "node scripts/gen-icons.mjs",
     "start": "next start",
     "lint": "eslint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "live-test": "node scripts/build-electron.mjs --live-test && electron dist-electron/live-test.js",
     "db:generate": "drizzle-kit generate",
@@ -53,6 +55,8 @@
     "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.5",
     "tailwindcss": "^4",
     "typescript": "^5",
     "wait-on": "^9.0.10"

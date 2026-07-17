@@ -78,7 +78,10 @@ export abstract class BaseScraper {
     }
 
     // Layer 2 — hidden BrowserWindow
-    const browserResult = await scrapeWithBrowser(parsed.url, this.pageScript());
+    const browserResult = await scrapeWithBrowser(
+      parsed.url,
+      this.pageScript(),
+    );
     return {
       ...browserResult,
       imageUrl: resolveImageUrl(browserResult.imageUrl, parsed.url),

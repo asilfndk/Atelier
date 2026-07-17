@@ -14,7 +14,10 @@ const traySvg = join(res, "trayTemplate.svg");
 
 async function svgToPng(svgPath, size, outPath) {
   await sharp(svgPath, { density: 384 })
-    .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .resize(size, size, {
+      fit: "contain",
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
     .png()
     .toFile(outPath);
 }
@@ -53,14 +56,19 @@ const icoSizes = [16, 32, 48];
 const icoBuffers = await Promise.all(
   icoSizes.map((s) =>
     sharp(iconSvg, { density: 384 })
-      .resize(s, s, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .resize(s, s, {
+        fit: "contain",
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
       .png()
       .toBuffer(),
   ),
 );
 writeFileSync(join(root, "app", "favicon.ico"), buildIco(icoBuffers, icoSizes));
 
-console.log("Icons generated: icon.icns, icon.png, trayTemplate.png(@2x), app/favicon.ico");
+console.log(
+  "Icons generated: icon.icns, icon.png, trayTemplate.png(@2x), app/favicon.ico",
+);
 
 // Package the PNGs into an ICO container (simple, dependency-free).
 function buildIco(pngBuffers, sizes) {

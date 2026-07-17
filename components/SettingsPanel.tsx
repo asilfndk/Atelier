@@ -42,7 +42,9 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
 
   if (!s) return null;
 
-  const isPresetInterval = INTERVALS.some((it) => it.cron === s.checkIntervalCron);
+  const isPresetInterval = INTERVALS.some(
+    (it) => it.cron === s.checkIntervalCron,
+  );
 
   return (
     <div
@@ -54,9 +56,12 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         aria-modal="true"
         aria-label="Settings"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md border border-hairline bg-paper-raised p-6 shadow-2xl">
+        className="w-full max-w-md border border-hairline bg-paper-raised p-6 shadow-2xl"
+      >
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-xl font-semibold text-ink">Settings</h2>
+          <h2 className="font-display text-xl font-semibold text-ink">
+            Settings
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -145,7 +150,9 @@ function UpdateRow({
 }) {
   const status = update?.status ?? "idle";
   const busy =
-    status === "checking" || status === "downloading" || status === "installing";
+    status === "checking" ||
+    status === "downloading" ||
+    status === "installing";
 
   return (
     <div className="flex flex-col gap-2">
@@ -173,8 +180,8 @@ function UpdateRow({
       )}
       {status === "downloaded" && (
         <p className="text-xs text-ink-soft">
-          Automatic install didn&apos;t complete — the installer is open,
-          drag Atelier into your Applications folder to finish.
+          Automatic install didn&apos;t complete — the installer is open, drag
+          Atelier into your Applications folder to finish.
         </p>
       )}
 
@@ -207,9 +214,7 @@ function UpdateRow({
             {status === "checking" && (
               <Loader2 className="h-3 w-3 animate-spin" />
             )}
-            {status === "checking"
-              ? "Checking…"
-              : "Check for updates"}
+            {status === "checking" ? "Checking…" : "Check for updates"}
           </button>
         )}
       </div>

@@ -69,7 +69,10 @@ export function getUpdateState(): UpdateState {
 /** "v0.3.7" → [0,3,7]; numeric segment comparison (no semver dependency). */
 function isNewer(tag: string, current: string): boolean {
   const parse = (v: string) =>
-    v.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
+    v
+      .replace(/^v/, "")
+      .split(".")
+      .map((n) => parseInt(n, 10) || 0);
   const a = parse(tag);
   const b = parse(current);
   const len = Math.max(a.length, b.length);
@@ -94,7 +97,9 @@ export async function checkForUpdate(): Promise<UpdateState> {
       },
     });
     if (res.status === 403 || res.status === 429) {
-      throw new Error("GitHub rate limit reached — try again in a few minutes.");
+      throw new Error(
+        "GitHub rate limit reached — try again in a few minutes.",
+      );
     }
     if (!res.ok) throw new Error(`GitHub response: ${res.status}`);
     const release = (await res.json()) as Release;
@@ -182,7 +187,8 @@ export async function downloadUpdate(): Promise<UpdateState> {
     const res = await fetch(asset.browser_download_url, {
       headers: { "User-Agent": "atelier-app" },
     });
-    if (!res.ok || !res.body) throw new Error(`Download response: ${res.status}`);
+    if (!res.ok || !res.body)
+      throw new Error(`Download response: ${res.status}`);
 
     const total = Number(res.headers.get("content-length")) || asset.size || 0;
     const dmgPath = join(app.getPath("temp"), asset.name);
@@ -220,7 +226,11 @@ export async function downloadUpdate(): Promise<UpdateState> {
         );
       }
     } else {
-      console.warn("[updater] no sha512 found for", asset.name, "— installing unverified");
+      console.warn(
+        "[updater] no sha512 found for",
+        asset.name,
+        "— installing unverified",
+      );
     }
 
     // Download complete — install over itself and restart.
@@ -230,7 +240,10 @@ export async function downloadUpdate(): Promise<UpdateState> {
   } catch (err) {
     setState({
       status: "error",
-      error: err instanceof Error ? err.message : "The download couldn't be completed.",
+      error:
+        err instanceof Error
+          ? err.message
+          : "The download couldn't be completed.",
     });
   }
   return getUpdateState();
@@ -287,9 +300,11 @@ async function installUpdate(dmgPath: string): Promise<void> {
     const staging = join(app.getPath("temp"), "Atelier-update.app");
     await rm(staging, { recursive: true, force: true });
     await execFileAsync("ditto", [join(mountPoint, appName), staging]);
-    await execFileAsync("xattr", ["-dr", "com.apple.quarantine", staging]).catch(
-      () => {},
-    );
+    await execFileAsync("xattr", [
+      "-dr",
+      "com.apple.quarantine",
+      staging,
+    ]).catch(() => {});
 
     // Once the app exits, swap the old bundle with the new one and relaunch.
     // The old bundle is renamed aside first and restored if the swap fails —
@@ -324,7 +339,9 @@ async function installUpdate(dmgPath: string): Promise<void> {
     setState({ status: "downloaded", percent: 100 });
   } finally {
     if (mountPoint) {
-      execFileAsync("hdiutil", ["detach", mountPoint, "-quiet"]).catch(() => {});
+      execFileAsync("hdiutil", ["detach", mountPoint, "-quiet"]).catch(
+        () => {},
+      );
     }
   }
 }

@@ -24,7 +24,10 @@ const entries = [
 // not as part of the packaged build.
 if (liveTest) {
   entries.length = 0;
-  entries.push({ in: "electron/live-test.ts", out: "dist-electron/live-test.js" });
+  entries.push({
+    in: "electron/live-test.ts",
+    out: "dist-electron/live-test.js",
+  });
 }
 
 for (const e of entries) {

@@ -12,11 +12,19 @@ import {
 
 /** All tracked products (newest first) */
 export function listProducts(): TrackedProduct[] {
-  return db.select().from(trackedProducts).orderBy(desc(trackedProducts.createdAt)).all();
+  return db
+    .select()
+    .from(trackedProducts)
+    .orderBy(desc(trackedProducts.createdAt))
+    .all();
 }
 
 export function getProduct(id: number): TrackedProduct | undefined {
-  return db.select().from(trackedProducts).where(eq(trackedProducts.id, id)).get();
+  return db
+    .select()
+    .from(trackedProducts)
+    .where(eq(trackedProducts.id, id))
+    .get();
 }
 
 export interface TrackInput {
@@ -126,7 +134,10 @@ export function recordCheck(
   if (imageUrl) patch.imageUrl = imageUrl;
   db.transaction((tx) => {
     tx.insert(checkHistory).values({ productId: id, inStock, price }).run();
-    tx.update(trackedProducts).set(patch).where(eq(trackedProducts.id, id)).run();
+    tx.update(trackedProducts)
+      .set(patch)
+      .where(eq(trackedProducts.id, id))
+      .run();
     // Retention: the table grows one row per product per check, forever.
     tx.delete(checkHistory)
       .where(
