@@ -295,17 +295,23 @@ export const ZARA_PAGE_SCRIPT = `
 
 /**
  * Bershka-specific: name/price/image from JSON-LD; color/size data comes from
- * the itxrest detail API called FROM INSIDE the page (direct HTTP requests get
- * caught by Akamai, same-origin fetch passes). \`detail.colors[]\` holds per-color
- * name, size list (\`visibilityValue: SHOW|COMING_SOON|SOLD_OUT\` — the same size
- * name repeats across multiple SKU rows, in stock if any is SHOW) and price in
- * minor units; \`out.colorVariants\` is filled from this (color URL =
- * pathname + \`?colorId=<id>\`, image = the per-color p/principal photo's
- * \`deliveryUrl\` from \`detail.xmedia[]\`, \`w=800\`; the \`#color-<id> img\` in the
- * DOM color list is a last resort only — that \`-r.jpg\` is a fabric crop, not a
- * product photo). Store/catalog/languageId are pinned to the TR store
- * (the app is TR-focused). If the API fails, fallback: sizeless colorVariants
- * from the DOM color list + sizes from \`.size-selector__list .size-button\`.
+ * the **Nuxt store** — the PDP is a Vue/Nuxt SPA and no longer calls the itxrest
+ * detail API at all (every catalogId, the pinned one and the live
+ * \`window.inditex.iCatalogId\`, now answers with an empty
+ * \`bundleProductSummaries\`). \`__NUXT__.pinia.productDetail.currentProduct.colors[]\`
+ * holds per-color name, stock (\`in_stock|coming_soon|out_of_stock\`) and the size
+ * list; each size's \`types[]\` is the **length dimension** (\`short|regular|long\`,
+ * printed on the site as Petite/Regular/Tall) carrying its own stock and price,
+ * so multi-length products yield composite size labels (\`44 · Regular\`) and a
+ * length that is sold out on its own is never reported as available.
+ * \`out.colorVariants\` is filled from this (color URL = pathname +
+ * \`?colorId=<id>\`, image = the per-color p/principal photo's \`deliveryUrl\` from
+ * \`currentProduct.xmedia[]\`, \`w=800\`; the \`#color-<id> img\` in the DOM color list
+ * is a last resort only — that \`-r.jpg\` is a fabric crop, not a product photo).
+ * The itxrest block is kept as a legacy fallback in case the Nuxt state moves;
+ * last resort: sizeless colorVariants from the DOM color list + sizes from
+ * \`.size-selector__list .size-button\` (the \`--length\` buttons live in that same
+ * list and are skipped — they are lengths, not sizes).
  */
 export const BERSHKA_PAGE_SCRIPT = `
   const out = { name: "", price: null, currency: null, imageUrl: null, colors: [], sizes: [], inStock: false };
@@ -353,9 +359,119 @@ export const BERSHKA_PAGE_SCRIPT = `
     });
   } catch (e) {}
 
-  // 2) Primary: itxrest detail API (in-page fetch — Akamai allows same-origin requests).
+  // Real product photo per color from an xmedia[] list (the last segment of
+  // path is the colorId). The deliveryUrl of the first p/p1 (principal) media;
+  // otherwise the first media that is NOT r/s (crop/swatch). Shared by the Nuxt
+  // and itxrest layers below — both ship the same xmedia shape.
+  const xmediaImagesFrom = (list) => {
+    const map = {};
+    try {
+      (Array.isArray(list) ? list : []).forEach((x) => {
+        const cid = String(x.colorCode || (x.path || '').split('/').filter(Boolean).pop() || '');
+        if (!cid || map[cid]) return;
+        const medias = [];
+        (Array.isArray(x.xmediaItems) ? x.xmediaItems : []).forEach((it) => {
+          (Array.isArray(it.medias) ? it.medias : []).forEach((m) => medias.push(m));
+        });
+        const urlOf = (m) => (m && m.extraInfo && m.extraInfo.deliveryUrl) || (m && m.url) || null;
+        const nameOf = (m) => String((m && m.extraInfo && m.extraInfo.originalName) || '');
+        const pick = medias.find((m) => /^p\\d*$/i.test(nameOf(m)) && urlOf(m))
+          || medias.find((m) => !/^(r|s)\\d*$/i.test(nameOf(m)) && urlOf(m));
+        if (!pick) return;
+        try {
+          const u = new URL(urlOf(pick), location.href);
+          u.searchParams.set('w', '800');
+          map[cid] = u.toString();
+        } catch (e) { map[cid] = urlOf(pick); }
+      });
+    } catch (e) {}
+    return map;
+  };
+
+  // The active color: ?colorId= in the URL, else the store's own selection.
+  const urlColorId = new URL(location.href).searchParams.get('colorId');
+
+  // Fill out.sizes/price/image from the active color variant.
+  const applyActiveColor = (ids) => {
+    let ai = ids.findIndex((id) => String(id) === String(urlColorId));
+    if (ai < 0) ai = 0;
+    const active = out.colorVariants[ai];
+    if (!active) return;
+    if (active.sizes && active.sizes.length) {
+      out.sizes = active.sizes;
+      out.inStock = active.sizes.some((s) => s.inStock);
+    }
+    if (active.price != null) out.price = active.price;
+    if (active.imageUrl && !out.imageUrl) out.imageUrl = active.imageUrl;
+  };
+
+  // 2) Primary: the Nuxt store (the PDP is a Vue/Nuxt SPA and no longer calls
+  // the itxrest detail API at all). \`currentProduct.colors[]\` holds per-color
+  // sizes; each size's \`types[]\` is the LENGTH dimension (short/regular/long →
+  // the site prints them as Petite/Regular/Tall) with its own stock, so a size
+  // that is sold out in one length only is not reported as available.
   try {
-    const pm = location.pathname.match(/p(\\d+)(?:\\.html)?$/i);
+    const cp = window.__NUXT__ && window.__NUXT__.pinia && window.__NUXT__.pinia.productDetail
+      && window.__NUXT__.pinia.productDetail.currentProduct;
+    const cols = cp && Array.isArray(cp.colors) ? cp.colors : [];
+    if (cols.length) {
+      const xmediaImg = xmediaImagesFrom(cp.xmedia);
+      const minor = (v) => { const n = parseFloat(v); return isFinite(n) ? n / 100 : null; };
+      const priceOf = (p) => (p && p.minPrice != null ? minor(p.minPrice) : null);
+      const inStockOf = (s) => String(s || '') === 'in_stock';
+      // The store's own length labels (TR site prints them in English).
+      const LENGTH_LABEL = { short: 'Petite', regular: 'Regular', long: 'Tall' };
+      out.colorVariants = cols.map((c) => {
+        const rows = Array.isArray(c.sizes) ? c.sizes : [];
+        const seen = new Set();
+        const sizes = [];
+        const push = (label, inStock, price) => {
+          // The store leaks untranslated i18n keys as size names on some rows
+          // ("product.properties.color.size.lilBsk:10-12") — not a real size.
+          if (!label || label.indexOf('product.properties.') === 0) return;
+          if (seen.has(label)) {
+            const prev = sizes.find((x) => x.label === label);
+            if (prev && inStock) prev.inStock = true;
+            return;
+          }
+          seen.add(label);
+          sizes.push({ label, inStock, price });
+        };
+        rows.forEach((s) => {
+          const base = String(s.name || '').trim();
+          const types = Array.isArray(s.types) ? s.types : [];
+          // More than one length → one row per length, composite label.
+          if (types.length > 1) {
+            types.forEach((t) => {
+              const key = String(t.type || '').trim();
+              const label = key ? base + ' · ' + (LENGTH_LABEL[key] || key) : base;
+              push(label, inStockOf(t.stock), priceOf(t.price) ?? priceOf(s.price));
+            });
+            return;
+          }
+          push(base, inStockOf(s.stock), priceOf(s.price));
+        });
+        return {
+          color: String(c.name || c.id || '').trim(),
+          url: location.origin + location.pathname + '?colorId=' + c.id,
+          imageUrl: xmediaImg[String(c.id)] || domColorImg[String(c.id)] || null,
+          sizes,
+          price: sizes.length ? sizes[0].price : priceOf(c.price),
+          // Sizeless color: fall back to the color's own stock flag.
+          ...(sizes.length ? {} : { inStock: inStockOf(c.stock) }),
+        };
+      }).filter((v) => v.color);
+      out.colors = out.colorVariants.map((v) => v.color);
+      applyActiveColor(cols.map((c) => c.id));
+    }
+  } catch (e) {}
+
+  // 3) Legacy: itxrest detail API (in-page fetch — Akamai allows same-origin
+  // requests). Kept as a fallback in case the Nuxt state moves or disappears.
+  try {
+    const pm = (!out.colorVariants || !out.colorVariants.length)
+      ? location.pathname.match(/p(\\d+)(?:\\.html)?$/i)
+      : null;
     if (pm) {
       const res = await fetch(
         '/itxrest/2/catalog/store/44109521/40259535/category/0/product/' + pm[1] + '/detail?languageId=-43',
@@ -366,30 +482,7 @@ export const BERSHKA_PAGE_SCRIPT = `
         const sums = Array.isArray(data.bundleProductSummaries) ? data.bundleProductSummaries : [];
         const detail = (sums[0] && sums[0].detail) || {};
         const cols = Array.isArray(detail.colors) ? detail.colors : [];
-        // Real product photo per color: detail.xmedia[] (the last segment of
-        // path is the colorId). The deliveryUrl of the first p/p1 (principal)
-        // media; otherwise the first media that is NOT r/s (crop/swatch).
-        const xmediaImg = {};
-        try {
-          (Array.isArray(detail.xmedia) ? detail.xmedia : []).forEach((x) => {
-            const cid = String((x.path || '').split('/').filter(Boolean).pop() || '');
-            if (!cid || xmediaImg[cid]) return;
-            const medias = [];
-            (Array.isArray(x.xmediaItems) ? x.xmediaItems : []).forEach((it) => {
-              (Array.isArray(it.medias) ? it.medias : []).forEach((m) => medias.push(m));
-            });
-            const urlOf = (m) => (m && m.extraInfo && m.extraInfo.deliveryUrl) || (m && m.url) || null;
-            const nameOf = (m) => String((m && m.extraInfo && m.extraInfo.originalName) || '');
-            const pick = medias.find((m) => /^p\\d*$/i.test(nameOf(m)) && urlOf(m))
-              || medias.find((m) => !/^(r|s)\\d*$/i.test(nameOf(m)) && urlOf(m));
-            if (!pick) return;
-            try {
-              const u = new URL(urlOf(pick), location.href);
-              u.searchParams.set('w', '800');
-              xmediaImg[cid] = u.toString();
-            } catch (e) { xmediaImg[cid] = urlOf(pick); }
-          });
-        } catch (e) {}
+        const xmediaImg = xmediaImagesFrom(detail.xmedia);
         if (cols.length) {
           const minor = (v) => { const n = parseFloat(v); return isFinite(n) ? n / 100 : null; };
           out.colorVariants = cols.map((c) => {
@@ -416,25 +509,13 @@ export const BERSHKA_PAGE_SCRIPT = `
             };
           }).filter((v) => v.color);
           out.colors = out.colorVariants.map((v) => v.color);
-          // Active color: the colorId in the URL, otherwise the first color.
-          const colorId = new URL(location.href).searchParams.get('colorId');
-          let ai = cols.findIndex((c) => String(c.id) === String(colorId));
-          if (ai < 0) ai = 0;
-          const active = out.colorVariants[ai];
-          if (active) {
-            if (active.sizes.length) {
-              out.sizes = active.sizes;
-              out.inStock = active.sizes.some((s) => s.inStock);
-            }
-            if (active.price != null) out.price = active.price;
-            if (active.imageUrl && !out.imageUrl) out.imageUrl = active.imageUrl;
-          }
+          applyActiveColor(cols.map((c) => c.id));
         }
       }
     }
   } catch (e) {}
 
-  // 3) Fallback — if the API gave no variants: DOM color list + DOM size reading.
+  // 4) Fallback — if neither source gave variants: DOM color list + DOM sizes.
   try {
     if (!out.colorVariants || !out.colorVariants.length) {
       const vars = [];
@@ -460,6 +541,9 @@ export const BERSHKA_PAGE_SCRIPT = `
       const seen = new Set();
       const domSizes = [];
       document.querySelectorAll('.size-selector__list .size-button').forEach((b) => {
+        // The length selector (Petite/Regular/Tall) lives in the same list —
+        // those are not sizes, and this layer cannot pair them with a size.
+        if (/size-button--length/.test((b.className || '').toString())) return;
         const lab = b.querySelector('.size-button__label');
         const label = ((lab ? lab.textContent : b.textContent) || '').trim();
         if (!label || seen.has(label)) return;
@@ -476,6 +560,14 @@ export const BERSHKA_PAGE_SCRIPT = `
       }
     }
   } catch (e) {}
+
+  // Bot-shell guard: an empty Akamai challenge page must fail loudly so the
+  // scheduler keeps the last known state instead of recording a false
+  // out-of-stock from a contentless page.
+  if (!out.name && out.price == null && !out.sizes.length
+      && !(out.colorVariants && out.colorVariants.length)) {
+    return { __error: 'empty page (bot challenge?)' };
+  }
 
   return out;
 `;
