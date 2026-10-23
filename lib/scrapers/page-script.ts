@@ -1,144 +1,4 @@
 /**
- * Shared script that extracts stock/price from the JSON-LD (`application/ld+json`)
- * Product schema found on Inditex brand product pages. Runs inside a hidden
- * BrowserWindow via `executeJavaScript` and returns a raw product object.
- *
- * The brands share the same e-commerce platform, so the JSON-LD structure is
- * similar; it can be overridden with a brand-specific script when needed.
- */
-export const JSONLD_PAGE_SCRIPT = `
-  const out = { name: "", price: null, currency: null, imageUrl: null, colors: [], sizes: [], inStock: false };
-  const blocks = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
-  let product = null, group = null;
-  for (const b of blocks) {
-    try {
-      let data = JSON.parse(b.textContent || "null");
-      const arr = Array.isArray(data) ? data : (data && data['@graph'] ? data['@graph'] : [data]);
-      for (const node of arr) {
-        if (node && (node['@type'] === 'Product' || (Array.isArray(node['@type']) && node['@type'].includes('Product')))) {
-          product = node; break;
-        }
-        if (!group && node && (node['@type'] === 'ProductGroup' || (Array.isArray(node['@type']) && node['@type'].includes('ProductGroup')))) {
-          group = node;
-        }
-      }
-    } catch (e) {}
-    if (product) break;
-  }
-  // Pages publishing ProductGroup (hasVariant): convert variants to an Offer list
-  // and reuse the same flow (o.name = size label; "S (US S)" → "S").
-  if (!product && group) {
-    const vars = Array.isArray(group.hasVariant) ? group.hasVariant : [];
-    product = {
-      name: group.name,
-      image: group.image,
-      offers: vars.filter(Boolean).map((v) => {
-        const o = v.offers ? (Array.isArray(v.offers) ? v.offers[0] : v.offers) : {};
-        return {
-          price: o && o.price,
-          priceCurrency: o && o.priceCurrency,
-          availability: o && o.availability,
-          name: v.size ? String(v.size).replace(/\\s*\\(US[^)]*\\)/i, '').trim() : '',
-        };
-      }),
-    };
-  }
-  if (product) {
-    out.name = product.name || "";
-    if (typeof product.image === 'string') out.imageUrl = product.image;
-    else if (Array.isArray(product.image)) out.imageUrl = product.image[0] || null;
-    else if (product.image && product.image.url) out.imageUrl = product.image.url;
-
-    const offers = product.offers ? (Array.isArray(product.offers) ? product.offers : [product.offers]) : [];
-    const inStockStr = (s) => typeof s === 'string' && s.toLowerCase().indexOf('instock') !== -1;
-    // Accept only human-readable size labels; drop SKU codes (long/dashed).
-    const SIZE_TOKEN = /^(XXS|XS|S|M|L|XL|XXL|XXXL|[2-6]XL|ONE SIZE|TEK BEDEN|\\d{2}(?:[\\/\\-]\\d{2})?)$/i;
-    for (const o of offers) {
-      if (out.price == null && o.price != null) out.price = parseFloat(o.price);
-      if (!out.currency && o.priceCurrency) out.currency = o.priceCurrency;
-      const label = String(o.name || (o.itemOffered && o.itemOffered.name) || "").trim();
-      if (label && SIZE_TOKEN.test(label)) {
-        out.sizes.push({ label, inStock: inStockStr(o.availability) });
-      }
-    }
-    out.inStock = out.sizes.some(s => s.inStock) || offers.some(o => inStockStr(o.availability));
-  }
-  // Color: collect from the selected/active color elements on the page (best-effort)
-  try {
-    const colorEls = document.querySelectorAll('[data-qa-qualifier="product-detail-color-selector"] [aria-label], [class*="color"] [aria-label]');
-    const set = new Set();
-    colorEls.forEach(el => { const t = (el.getAttribute('aria-label') || '').trim(); if (t) set.add(t); });
-    out.colors = Array.from(set).slice(0, 20);
-  } catch (e) {}
-
-  // Sizes: read from known size containers, clicking the CTA first if needed.
-  try {
-    const TOKEN = /^(XXS|XS|S|M|L|XL|XXL|XXXL|[2-6]XL|ONE SIZE|TEK BEDEN|\\d{2}(?:[\\/\\-]\\d{2})?)$/i;
-    const CONTAINERS = '.size-selector__list, [class*="size-selector" i], [class*="sizeList" i], [class*="size-list" i], [class*="sizes__list" i], [data-qa-qualifier*="size" i]';
-
-    // Collect size elements from known containers (take the most populated tag set).
-    function readFromContainers() {
-      let best = [];
-      document.querySelectorAll(CONTAINERS).forEach((c) => {
-        ['button', 'li', '[role="button"]', '[role="option"]', '[role="radio"]'].forEach((tag) => {
-          const items = Array.from(c.querySelectorAll(tag))
-            .filter((e) => TOKEN.test((e.innerText || '').trim()) && e.children.length <= 1);
-          if (items.length > best.length) best = items;
-        });
-      });
-      return best;
-    }
-
-    // Fallback grouping by common parent across the whole document.
-    function readByParent() {
-      const cands = Array.from(
-        document.querySelectorAll('button, li, [role="button"], [role="option"]'),
-      ).filter((e) => TOKEN.test((e.innerText || '').trim()) && e.children.length <= 1);
-      const byParent = new Map();
-      cands.forEach((e) => {
-        const p = e.parentElement;
-        if (!p) return;
-        (byParent.get(p) || byParent.set(p, []).get(p)).push(e);
-      });
-      let group = [];
-      byParent.forEach((arr) => { if (arr.length > group.length) group = arr; });
-      return group;
-    }
-
-    let els = readFromContainers();
-    if (els.length < 2) {
-      // If the size panel is closed: click only SEPETE EKLE / ADD TO BAG (not the wishlist).
-      const cta = Array.from(document.querySelectorAll('button, [role="button"]')).find((b) => {
-        const t = (b.innerText || b.getAttribute('aria-label') || '').trim();
-        return /SEPETE EKLE|ADD TO (BAG|CART|BASKET)|BEDEN SEÇ/i.test(t) && !/istek|wishlist|favori/i.test(t);
-      });
-      if (cta) { cta.click(); await __sleep(2000); }
-      els = readFromContainers();
-      if (els.length < 2) els = readByParent();
-    }
-
-    if (els.length >= 2) {
-      const seen = new Set();
-      const domSizes = [];
-      els.forEach((e) => {
-        const label = (e.innerText || '').trim();
-        if (!label || seen.has(label)) return;
-        seen.add(label);
-        const cls = (e.className || '').toString();
-        const ariaDis = e.getAttribute('aria-disabled');
-        const disabled =
-          e.disabled || ariaDis === 'true' ||
-          /out-of-stock|disabled|unavailable|sold|tüken/i.test(cls);
-        domSizes.push({ label, inStock: !disabled });
-      });
-      if (domSizes.length) out.sizes = domSizes;
-    }
-  } catch (e) {}
-
-  return out;
-`;
-
-/**
  * Zara-specific: name/price/image from JSON-LD + open the "ADD" panel and read
  * clean size labels (XS/S/M/L) and stock status (`data-qa-action`) from the
  * size selector. Async — the size panel loads on interaction, so waiting is required.
@@ -718,8 +578,13 @@ function makeItxrestScript(cfg: ItxrestScriptConfig): string {
           if (r.ok) data = await r.json();
         } catch (e) {}
       }
+      // Most stores wrap the product in bundleProductSummaries[0]; Stradivarius
+      // returns it unwrapped (bundle empty, colors under data.detail).
+      const summariesOf = (d) => !d ? []
+        : Array.isArray(d.bundleProductSummaries) && d.bundleProductSummaries.length ? d.bundleProductSummaries
+        : d.detail && Array.isArray(d.detail.colors) && d.detail.colors.length ? [d] : [];
       for (const id of cands) {
-        if (data && Array.isArray(data.bundleProductSummaries) && data.bundleProductSummaries.length) break;
+        if (summariesOf(data).length) break;
         try {
           const r = await fetch(
             '/itxrest/2/catalog/store/' + storeId + '/' + catalogId + '/category/0/product/' + id + '/detail?languageId=' + langId,
@@ -728,7 +593,7 @@ function makeItxrestScript(cfg: ItxrestScriptConfig): string {
           if (r.ok) data = await r.json();
         } catch (e) {}
       }
-      const sums = data && Array.isArray(data.bundleProductSummaries) ? data.bundleProductSummaries : [];
+      const sums = summariesOf(data);
       const detail = (sums[0] && sums[0].detail) || {};
       // Some stores on this platform (Oysho) ship no JSON-LD — take the name
       // from the API detail and assume the store currency (all TR stores: TRY).
@@ -931,6 +796,16 @@ export const OYSHO_PAGE_SCRIPT = makeItxrestScript({
   },
 });
 
+export const STRADIVARIUS_PAGE_SCRIPT = makeItxrestScript({
+  colorParam: "colorId",
+  productIdParam: "pelement",
+  pinned: {
+    storeId: "54009571",
+    catalogId: "50331068",
+    note: "Stradivarius TR store/catalog IDs observed live on 2026-10-23",
+  },
+});
+
 export const MASSIMODUTTI_PAGE_SCRIPT = makeItxrestScript({
   colorParam: "colorId",
   productIdParam: "pelement",
@@ -1087,26 +962,67 @@ export const GENERIC_PAGE_SCRIPT =
   STORE_CORE_SCRIPT + GENERIC_SIZE_BLOCK + "\n  return out;\n";
 
 /**
- * SneaksUp (Ticimax) size block: `.size-options-item`; an in-stock item carries
- * the `in-stock-attribute-item` class, the size text is `.size-options-item-value`.
- * The page may have one visible + one `d-none` block; deduplicated by label.
+ * SneaksUp (Next.js/MUI) block: `__NEXT_DATA__.props.pageProps.product` —
+ * `variants[]` is one row per size (`specValueName`, `quantity`, `newPrice`),
+ * `relatedVariants[]` one row per color, each its own product page (`slug`).
+ * Other colors carry no size list here, so they get no `imageUrl` — the panel
+ * lazily fetches their own page on selection. Fallback: the size buttons
+ * (`.add-to-cart__size-btn`, disabled when out of stock).
  */
 const SNEAKSUP_SIZE_BLOCK = `
   try {
+    const nd = JSON.parse((document.getElementById('__NEXT_DATA__') || {}).textContent || 'null');
+    const p = nd && nd.props && nd.props.pageProps && nd.props.pageProps.product;
+    if (p && Array.isArray(p.variants) && p.variants.length) {
+      out.sizes = p.variants
+        .filter((v) => v && v.specValueName)
+        .map((v) => ({
+          label: String(v.specValueName).trim(),
+          inStock: Number(v.quantity) > 0,
+          price: typeof v.newPrice === 'number' ? v.newPrice : undefined,
+        }));
+      out.inStock = out.sizes.some((s) => s.inStock);
+      if (p.price && typeof p.price.newPrice === 'number') out.price = p.price.newPrice;
+      if (p.price && p.price.currencyCode) out.currency = p.price.currencyCode;
+    }
+    const rel = (p && Array.isArray(p.relatedVariants)) ? p.relatedVariants : [];
+    if (rel.length > 1) {
+      // Colorways often share a name (4× "GRİ"): disambiguate with the slug's
+      // last colorway code ("GRİ (044)"), else the variantId. Both are stable
+      // across the colorways' pages (the list order is not), so a tracked
+      // color label still matches when the scheduler re-checks its own page.
+      const named = rel.filter((r) => r.specValueName);
+      const count = (arr, v) => arr.filter((x) => x === v).length;
+      const names = named.map((r) => r.specValueName);
+      let labels = named.map((r) => {
+        if (count(names, r.specValueName) < 2) return r.specValueName;
+        const m = /^.*-(\\d{3})-[a-z0-9-]*-p-\\d+$/i.exec(r.slug || '');
+        return r.specValueName + ' (' + (m ? m[1] : r.variantId) + ')';
+      });
+      labels = labels.map((l, i) => count(labels, l) < 2 ? l : named[i].specValueName + ' (' + named[i].variantId + ')');
+      out.colors = labels;
+      out.colorVariants = named.map((r, i) => {
+        const cv = {
+          color: labels[i],
+          url: location.origin + '/' + r.slug,
+          price: r.price && typeof r.price.newPrice === 'number' ? r.price.newPrice : undefined,
+          inStock: !!r.hasStock,
+        };
+        if (r.isSelected) { cv.imageUrl = out.imageUrl; cv.sizes = out.sizes; }
+        return cv;
+      });
+    }
+  } catch (e) {}
+  if (!out.sizes.length) {
     const seen = new Set();
-    const domSizes = [];
-    document.querySelectorAll('.size-options-item').forEach((it) => {
-      const valEl = it.querySelector('.size-options-item-value') || it.querySelector('.size-options-item-label');
-      const label = ((valEl ? valEl.textContent : it.textContent) || '').trim();
+    document.querySelectorAll('.add-to-cart__size-btn').forEach((b) => {
+      const label = (b.getAttribute('aria-label') || b.textContent || '').trim();
       if (!label || seen.has(label)) return;
       seen.add(label);
-      const cls = (it.className || '').toString();
-      const inStock = /in-stock-attribute-item/i.test(cls)
-        && !/out-of-stock|passive|disabled|tüken|sold/i.test(cls);
-      domSizes.push({ label, inStock });
+      out.sizes.push({ label, inStock: !b.disabled });
     });
-    if (domSizes.length) { out.sizes = domSizes; out.inStock = domSizes.some((s) => s.inStock); }
-  } catch (e) {}
+    if (out.sizes.length) out.inStock = out.sizes.some((s) => s.inStock);
+  }
 `;
 
 export const SNEAKSUP_PAGE_SCRIPT =

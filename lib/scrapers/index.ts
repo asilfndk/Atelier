@@ -7,7 +7,6 @@ import {
   BERSHKA_PAGE_SCRIPT,
   BOYNER_PAGE_SCRIPT,
   GENERIC_PAGE_SCRIPT,
-  JSONLD_PAGE_SCRIPT,
   LEFTIES_PAGE_SCRIPT,
   MANGO_PAGE_SCRIPT,
   MASSIMODUTTI_PAGE_SCRIPT,
@@ -15,6 +14,7 @@ import {
   PULLANDBEAR_PAGE_SCRIPT,
   SEPHORA_PAGE_SCRIPT,
   SNEAKSUP_PAGE_SCRIPT,
+  STRADIVARIUS_PAGE_SCRIPT,
   VICTORIASSECRET_PAGE_SCRIPT,
   WUNDER_PAGE_SCRIPT,
   ZARA_PAGE_SCRIPT,
@@ -43,7 +43,7 @@ const scrapers: BaseScraper[] = [
   makeScraper({
     brand: "stradivarius",
     hostname: "stradivarius.com",
-    script: JSONLD_PAGE_SCRIPT,
+    script: STRADIVARIUS_PAGE_SCRIPT,
     parse: (u) => inditexParse(u, LP_CODE),
   }),
   makeScraper({

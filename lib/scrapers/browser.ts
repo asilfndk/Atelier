@@ -150,26 +150,58 @@ async function loadAndExtract(
   await Promise.race([load, domReady]);
   // If dom-ready wins the race, load may be left orphaned and reject — swallow it.
   void load.catch(() => {});
+  // Probe the page; a navigation mid-call leaves executeJavaScript pending
+  // forever, so cap each probe at 2s (null = no answer).
+  const probe = (js: string): Promise<unknown> =>
+    Promise.race([
+      win.webContents.executeJavaScript(js, true).catch(() => null),
+      new Promise((r) => setTimeout(() => r(null), 2000)),
+    ]);
+  // Cloudflare interstitial (Boyner: "Bir dakika lütfen..."): dom-ready fires
+  // for the challenge page itself. In a hidden window it never solves on its
+  // own, but a reload passes once the first hit has set CF's cookies — reload
+  // at 2s and 10s. No answer (null) = mid-navigation: keep waiting, never reload.
+  for (let i = 0; i < 40; i++) {
+    const challenged = await probe(
+      `!!(window._cf_chl_opt || document.getElementById('challenge-form')
+        || /^(bir dakika|just a moment)/i.test(document.title))`,
+    );
+    if (challenged === false) break;
+    if (challenged && (i === 4 || i === 20)) win.webContents.reload();
+    await new Promise((r) => setTimeout(r, 500));
+  }
   // Wait for the page to populate its JS state — poll for JSON-LD instead of a
   // flat sleep so ready pages don't pay the full 3s.
   for (let i = 0; i < 10; i++) {
-    const hasLd = await win.webContents
-      .executeJavaScript(
-        `!!document.querySelector('script[type="application/ld+json"]')`,
-        true,
-      )
-      .catch(() => false);
+    const hasLd = await probe(
+      `!!document.querySelector('script[type="application/ld+json"]')`,
+    );
     if (hasLd) break;
     await new Promise((r) => setTimeout(r, 300));
   }
   // async wrapper: brand scripts may await to open the size panel.
-  return win.webContents.executeJavaScript(
-    `(async function(){
-       const __sleep = (ms) => new Promise(r => setTimeout(r, ms));
-       try { ${pageScript} } catch (e) { return { __error: String(e) }; }
-     })()`,
-    true,
-  );
+  const run = () =>
+    win.webContents.executeJavaScript(
+      `(async function(){
+         const __sleep = (ms) => new Promise(r => setTimeout(r, ms));
+         try { ${pageScript} } catch (e) { return { __error: String(e) }; }
+       })()`,
+      true,
+    );
+  // A late main-frame navigation (Watsons re-navigates once or twice ~1s after
+  // the first load) destroys the context mid-script and the promise never
+  // settles — re-run on each new document; withTimeout bounds the loop.
+  const NAV = Symbol("nav");
+  for (;;) {
+    const renavigated = new Promise<typeof NAV>((resolve) =>
+      win.webContents.once("did-navigate", () => resolve(NAV)),
+    );
+    const res = await Promise.race([run(), renavigated]);
+    if (res !== NAV) return res;
+    await new Promise<void>((r) =>
+      win.webContents.once("dom-ready", () => r()),
+    );
+  }
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {

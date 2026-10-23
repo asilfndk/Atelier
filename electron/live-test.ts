@@ -27,16 +27,16 @@ function applyHeaders(win: BrowserWindow): void {
 // Brand listing/category pages — real product links are discovered from these.
 const LISTINGS = [
   "https://www.zara.com/us/en/woman-dresses-l1066.html",
-  "https://www.bershka.com/tr/kadin/yeni-n3283.html",
-  "https://www.stradivarius.com/tr/kadin/giyim/elbiseler-n1928.html",
-  // Pull & Bear — direct product URLs (multi-color + sizeless perfume).
+  // Bershka — direct product URL (listing pages expose no product links).
+  "https://www.bershka.com/tr/büzgülü-askılı-midi-elbise-c0p229730044.html",
+  // Stradivarius — direct product URL (itxrest detail arrives unwrapped).
+  "https://www.stradivarius.com/tr/asimetrik-triko-kazak-l05065702",
+  // Pull & Bear — direct product URLs (multi-color, unwrapped detail + bundled detail).
   "https://www.pullandbear.com/tr/keten-jogger-pantolon-l03671509?cS=717&pelement=744752801",
-  "https://www.pullandbear.com/tr/freaking-marvellous-parfum-l00100501?cS=157&pelement=721970742",
-  // Lefties — direct product URLs (multi-color jeans + footwear).
+  "https://www.pullandbear.com/tr/leopar-desenli-baggy-jean-l07670372",
+  // Lefties — direct product URL (multi-color jeans).
   "https://www.lefties.com/tr/en/woman/clothing/jeans/lightweight-striped-culotte-jeans-c1030267526p747880059.html?colorId=104&parentId=747884869",
-  "https://www.lefties.com/tr/en/woman/footwear/flat-sandals/gold-strappy-flat-sandals-c1030290507p747861209.html?colorId=091&style=04&parentId=754686322",
-  // Oysho — direct product URLs (leggings with a length dimension + tapered pants).
-  "https://www.oysho.com/tr/high-rise-comfortlux-bilek-hizasında-tayt-l31216226?colorId=516&pelement=203653805",
+  // Oysho — direct product URL (tapered pants).
   "https://www.oysho.com/tr/100-pamuklu-tapered-pantolon-l35681670?colorId=913&pelement=223465926",
   // Massimo Dutti — direct product URL (multi-color jean).
   "https://www.massimodutti.com/tr/yuksek-bel-genis-paca-jean-l05052852?pelement=61733754",
@@ -44,13 +44,18 @@ const LISTINGS = [
   "https://lesbenjamins.com/collections/kadin-tisort/products/short-sleeve-tee-404-lb26ssclafuts-404",
   // Newer stores — direct product URLs (parseUrl matches → scraped directly).
   "https://www.sneaksup.com/new-balance-9060-lifestyle-womens-shoes-u9060blk-w-1",
-  "https://tr.tommy.com/erkek-hirka_206739",
+  // SneaksUp — multi-color (colorways sharing a name → "GRİ (026)").
+  "https://www.sneaksup.com/jordan-air-1-low-gs-553560-026-sneaker-p-253641",
+  "https://tr.tommy.com/erkek-tjm-regular-textured-kazak_208537",
   "https://www.victoriassecret.com.tr/victoria-s-secret-saten-dantel-detayli-askili-bluz-ve-firfirli-sort-takimi-VS27291321",
   "https://www.boyner.com.tr/nike-if1448-010-m-nk-df-acd25-short-kp-b-siyah-erkek-sort-p-15917358",
   "https://wunder.com.tr/classic-england-polo-white-ubmw0502fa328-wth0001",
   "https://www.superstep.com.tr/urun/adidas-handball-spezial-kadin-bej-spor-ayakkabi/ki6678/",
   "https://shop.mango.com/tr/tr/p/kadın/etek/anvelop-kesim-sort-etek/27094095/99/00",
   "https://www.sephora.com.tr/p/yum-boujee-marshmallow--81---eau-de-parfum-intense-733611.html",
+  "https://www.gratis.com/eyeliner/astra-subliminal-16-saat-dayanikli-yogun-siyah-pro-eyeliner-p-10209614",
+  // Watsons — re-navigates ~1s after load (exercises the re-run path).
+  "https://www.watsons.com.tr/flormar-sheer-up-ruj-no-013-gaia/p/BP_1433768",
 ];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
