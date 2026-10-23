@@ -83,7 +83,7 @@ export function inditexParse(
   return { productId: m[1], locale };
 }
 
-/** Last path segment as the productId (slug sites: SneaksUp, Wunder). */
+/** Last path segment as the productId (slug sites: SneaksUp, Wunder, Sportinn). */
 export function lastSegmentParse(u: URL): { productId: string } | null {
   const slug = u.pathname.split("/").filter(Boolean).pop();
   return slug ? { productId: slug } : null;

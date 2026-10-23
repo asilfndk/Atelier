@@ -54,6 +54,10 @@ const LISTINGS = [
   "https://shop.mango.com/tr/tr/p/kadın/etek/anvelop-kesim-sort-etek/27094095/99/00",
   "https://www.sephora.com.tr/p/yum-boujee-marshmallow--81---eau-de-parfum-intense-733611.html",
   "https://www.gratis.com/eyeliner/astra-subliminal-16-saat-dayanikli-yogun-siyah-pro-eyeliner-p-10209614",
+  // Sportinn — T-Soft behind Cloudflare; colors are separate product pages
+  // (the second lists colors by product name, and its own page is missing from them).
+  "https://www.sportinn.com.tr/jordan-flight-wings-fleece-po-erkek-yesil-sweatshirt-im9191-321",
+  "https://www.sportinn.com.tr/nike-tech-fleece-fz-wr-hoodie-erkek-yesil-sweatshirt-hv0949-382",
   // Watsons — re-navigates ~1s after load (exercises the re-run path).
   "https://www.watsons.com.tr/flormar-sheer-up-ruj-no-013-gaia/p/BP_1433768",
 ];

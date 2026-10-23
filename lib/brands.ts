@@ -19,6 +19,7 @@ export const BRAND_LABELS: Record<Brand, string> = {
   gratis: "Gratis",
   watsons: "Watsons",
   lesbenjamins: "Les Benjamins",
+  sportinn: "Sportinn",
 };
 
 export function formatPrice(

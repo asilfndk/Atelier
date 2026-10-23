@@ -6,10 +6,10 @@ Atelier lives in the menu bar (it never shows in the Dock — `LSUIElement`), so
 
 ## Supported stores
 
-|             |                                                                                                                  |
-| ----------- | ---------------------------------------------------------------------------------------------------------------- |
-| **Inditex** | Zara · Bershka · Stradivarius · Pull & Bear · Lefties                                                            |
-| **Others**  | Mango · Sephora · SneaksUp · Tommy Hilfiger · Victoria's Secret · Boyner · Wunder · Superstep · Gratis · Watsons |
+|             |                                                                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Inditex** | Zara · Bershka · Stradivarius · Pull & Bear · Lefties · Oysho · Massimo Dutti                                                               |
+| **Others**  | Mango · Sephora · SneaksUp · Sportinn · Tommy Hilfiger · Victoria's Secret · Boyner · Wunder · Superstep · Gratis · Watsons · Les Benjamins |
 
 ## Features
 
@@ -108,10 +108,10 @@ npm run dist:x64
 
 ### Adding a new store scraper
 
-1. Create `lib/scrapers/<brand>.ts` extending `BaseScraper`; implement `brand`, `canHandle`, `parseUrl`, `fetchFromApi`, `pageScript`.
-2. Add the layer-2 extraction script to `lib/scrapers/page-script.ts`.
-3. Add the brand to `BRANDS` in `db/schema.ts` (and a label in `lib/brands.ts`).
-4. Register it in the `scrapers[]` list in `lib/scrapers/index.ts`.
+1. Add the layer-2 extraction script to `lib/scrapers/page-script.ts`. If the site has color variants, emit `colorVariants` (one per color, with its own URL) so picking a color updates image/sizes/price.
+2. Register the brand with a `makeScraper({ brand, hostname, script, parse })` entry in the `scrapers[]` list in `lib/scrapers/index.ts`. Write a class extending `BaseScraper` only when the store has a real internal API (see `gratis.ts`).
+3. Add the brand to `BRANDS` in `db/schema.ts` and a label in `lib/brands.ts`. The UI's store list reads these labels, and no migration is needed.
+4. Add a product URL to `LISTINGS` in `electron/live-test.ts` and run the live-test harness against it.
 
 ## License
 

@@ -14,6 +14,7 @@ import {
   PULLANDBEAR_PAGE_SCRIPT,
   SEPHORA_PAGE_SCRIPT,
   SNEAKSUP_PAGE_SCRIPT,
+  SPORTINN_PAGE_SCRIPT,
   STRADIVARIUS_PAGE_SCRIPT,
   VICTORIASSECRET_PAGE_SCRIPT,
   WUNDER_PAGE_SCRIPT,
@@ -74,6 +75,12 @@ const scrapers: BaseScraper[] = [
     brand: "sneaksup",
     hostname: "sneaksup.com",
     script: SNEAKSUP_PAGE_SCRIPT,
+    parse: lastSegmentParse,
+  }),
+  makeScraper({
+    brand: "sportinn",
+    hostname: "sportinn.com.tr",
+    script: SPORTINN_PAGE_SCRIPT,
     parse: lastSegmentParse,
   }),
   makeScraper({

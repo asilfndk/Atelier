@@ -27,6 +27,7 @@ export const BRANDS = [
   "gratis",
   "watsons",
   "lesbenjamins",
+  "sportinn",
 ] as const;
 export type Brand = (typeof BRANDS)[number];
 

@@ -1029,6 +1029,86 @@ export const SNEAKSUP_PAGE_SCRIPT =
   STORE_CORE_SCRIPT + SNEAKSUP_SIZE_BLOCK + "\n  return out;\n";
 
 /**
+ * Sportinn (T-Soft) block: no Product JSON-LD — name/price/image come from
+ * `window.PRODUCT_DATA[0]` (`total_sale_price` is VAT-inclusive). Sizes are
+ * server-rendered `#product-detail [data-toggle="variant"]` chips:
+ * `data-type` = label, `data-price` is VAT-exclusive (+ `data-vat` %). Sold-out
+ * sizes are not rendered at all, so the list holds in-stock sizes only; with no
+ * chips, stock comes from `PRODUCT_DATA.available`. (Every chip's class string
+ * contains the Tailwind token `[&.passive]:…` — test `classList`, not a regex.)
+ * Colors are `a[data-toggle="tooltip"][data-title]` links, each its own
+ * product page. The list may omit the current product, so it is added from the
+ * "Renk:" value. `data-title` is sometimes the full product name, or repeats:
+ * those get the style code from the slug ("HV0949-015"). Other colors get no
+ * `imageUrl` so the panel lazily fetches their own page (and sizes).
+ */
+const SPORTINN_BLOCK = `
+  try {
+    const pd = Array.isArray(window.PRODUCT_DATA) ? window.PRODUCT_DATA[0] : null;
+    if (pd) {
+      if (pd.name) out.name = String(pd.name).trim();
+      const p = Number(pd.total_sale_price);
+      if (isFinite(p) && p > 0) out.price = p;
+      if (pd.image) out.imageUrl = String(pd.image);
+      out.currency = 'TRY';
+    }
+    const root = document.getElementById('product-detail') || document;
+    const seen = new Set();
+    const sizes = [];
+    root.querySelectorAll('[data-toggle="variant"]').forEach((el) => {
+      const label = String(el.dataset.type || el.textContent || '').trim();
+      if (!label || seen.has(label)) return;
+      seen.add(label);
+      const net = parseFloat(el.dataset.price);
+      const vat = parseFloat(el.dataset.vat) || 0;
+      sizes.push({
+        label,
+        inStock: el.dataset.instock !== '0' && !el.classList.contains('passive'),
+        price: isFinite(net) ? Math.round(net * (1 + vat / 100) * 100) / 100 : undefined,
+      });
+    });
+    if (sizes.length) { out.sizes = sizes; out.inStock = sizes.some((s) => s.inStock); }
+    else if (pd) out.inStock = pd.available === true;
+
+    const codeOf = (path) => {
+      const m = /-([a-z]{2}\\d{4}-\\d{3})$/i.exec(path);
+      return m ? m[1].toUpperCase() : null;
+    };
+    const links = [];
+    root.querySelectorAll('a[data-toggle="tooltip"][data-title]').forEach((a) => {
+      if (!a.querySelector('img')) return;
+      const u = new URL(a.getAttribute('href'), location.origin);
+      if (links.some((l) => l.path === u.pathname)) return;
+      links.push({ title: String(a.dataset.title || '').trim(), path: u.pathname });
+    });
+    if (links.length && !links.some((l) => l.path === location.pathname)) {
+      const renk = [...root.querySelectorAll('span')].find((s) => s.textContent.trim() === 'Renk:');
+      const title = renk && renk.nextElementSibling ? renk.nextElementSibling.textContent.trim() : '';
+      links.unshift({ title, path: location.pathname });
+    }
+    if (links.length > 1) {
+      // A real color is a short name ("Antrasit"); a long title is the product name.
+      const base = links.map((l) => (l.title && l.title.split(/\\s+/).length <= 3 ? l.title : ''));
+      out.colorVariants = links.map((l, i) => {
+        const code = codeOf(l.path);
+        const dup = base[i] && base.filter((b) => b === base[i]).length > 1;
+        const color = !base[i] ? (code || l.title) : dup && code ? base[i] + ' (' + code + ')' : base[i];
+        const cv = { color, url: location.origin + l.path };
+        if (l.path === location.pathname) {
+          cv.imageUrl = out.imageUrl; cv.sizes = out.sizes; cv.price = out.price;
+          if (!out.sizes.length) cv.inStock = out.inStock;
+        }
+        return cv;
+      }).filter((cv) => cv.color);
+      out.colors = out.colorVariants.map((c) => c.color);
+    }
+  } catch (e) {}
+`;
+
+export const SPORTINN_PAGE_SCRIPT =
+  STORE_CORE_SCRIPT + SPORTINN_BLOCK + "\n  return out;\n";
+
+/**
  * Boyner (React/CSS-module) size block: row `[class*="selectSizeOption__"]`,
  * label is the `<h5>` inside `[class*="selectSizeOptionLabel"]`. The size panel
  * is collapsed (`max-height:0`), so `innerText` returns empty — `textContent`
