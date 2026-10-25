@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import type { AppSettings, UpdateState } from "@/types/global";
 
 const INTERVALS: { label: string; cron: string }[] = [
+  { label: "1 min", cron: "* * * * *" },
   { label: "5 min", cron: "*/5 * * * *" },
   { label: "15 min", cron: "*/15 * * * *" },
   { label: "30 min", cron: "*/30 * * * *" },
