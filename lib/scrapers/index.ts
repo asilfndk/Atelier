@@ -4,6 +4,8 @@ import { GratisScraper } from "./gratis";
 import { LesBenjaminsScraper } from "./lesbenjamins";
 import { inditexParse, lastSegmentParse, makeScraper } from "./simple";
 import {
+  BARCIN_PAGE_SCRIPT,
+  NIKE_PAGE_SCRIPT,
   BERSHKA_PAGE_SCRIPT,
   BOYNER_PAGE_SCRIPT,
   GENERIC_PAGE_SCRIPT,
@@ -28,6 +30,21 @@ const P_CODE = /p(\d+)(?:\.html)?$/i;
 const LP_CODE = /[lp](\d+)(?:\.html)?$/i;
 
 const scrapers: BaseScraper[] = [
+  makeScraper({
+    brand: "nike",
+    hostname: "nike.com",
+    script: NIKE_PAGE_SCRIPT,
+    parse: (u) => {
+      const match = u.pathname.match(/^\/tr\/t\/[^/]+\/([A-Z0-9]+-\d{3})\/?$/i);
+      return match ? { productId: match[1] } : null;
+    },
+  }),
+  makeScraper({
+    brand: "barcin",
+    hostname: "barcin.com",
+    script: BARCIN_PAGE_SCRIPT,
+    parse: lastSegmentParse,
+  }),
   makeScraper({
     brand: "zara",
     hostname: "zara.com",

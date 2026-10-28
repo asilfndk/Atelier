@@ -39,6 +39,11 @@ interface Props {
 function defaultColor(result: ScrapeResult, url: string): string | null {
   try {
     const u = new URL(url);
+    const barcinColor = u.searchParams.get("integration_color_hash");
+    if (barcinColor && result.colorVariants) {
+      const match = result.colorVariants.find((v) => v.color === barcinColor);
+      if (match) return match.color;
+    }
     const v1 = u.searchParams.get("v1");
     if (v1 && result.colorVariants) {
       const m = result.colorVariants.find((v) => v.url?.includes(`v1=${v1}`));

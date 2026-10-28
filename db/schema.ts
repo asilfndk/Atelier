@@ -28,6 +28,8 @@ export const BRANDS = [
   "watsons",
   "lesbenjamins",
   "sportinn",
+  "nike",
+  "barcin",
 ] as const;
 export type Brand = (typeof BRANDS)[number];
 

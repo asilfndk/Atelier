@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { BrowserWindow, app } from "electron";
 import { checkUrl, getScraperForUrl } from "@/lib/scrapers";
 
@@ -26,6 +27,12 @@ function applyHeaders(win: BrowserWindow): void {
 
 // Brand listing/category pages — real product links are discovered from these.
 const LISTINGS = [
+  "https://www.nike.com/tr/t/jordan-flight-fleece-crew-yakali-erkek-sweatshirtu-FBZe06Sx/IW6368-010",
+  "https://www.nike.com/tr/t/jordan-brooklyn-chore-erkek-ceketi-LOwsuQb8/IM8989-010",
+  "https://www.nike.com/tr/t/jordan-flight-erkek-varsity-ceket-BlTKTrj7/IM9145-010",
+  "https://www.nike.com/tr/t/air-jordan-1-retro-high-og-love-letter-erkek-ayakkabisi-BFqZfb/DZ5485-201",
+  "https://www.barcin.com/nike-jordan-flt-wings-fleece-erkek-sweatshirt-siyah-siyah-beyaz/?integration_color_hash=Siyah-Siyah-Kırmızı",
+
   "https://www.zara.com/us/en/woman-dresses-l1066.html",
   // Bershka — direct product URL (listing pages expose no product links).
   "https://www.bershka.com/tr/büzgülü-askılı-midi-elbise-c0p229730044.html",
@@ -91,6 +98,7 @@ async function discover(listUrl: string): Promise<string[]> {
 }
 
 app.whenReady().then(async () => {
+  let failures = 0;
   // Specific listing URLs may be passed via argv; otherwise try them all.
   const argUrls = process.argv.filter((a) => a.startsWith("http"));
   const targets = argUrls.length ? argUrls : LISTINGS;
@@ -119,11 +127,48 @@ app.whenReady().then(async () => {
       console.log(
         "  → no product link found (bot block or different structure)",
       );
+      failures++;
       continue;
     }
     console.log("  scrape:", target);
     try {
       const r = await checkUrl(target);
+      if (brand === "nike" || brand === "barcin") {
+        assert(r.name && r.imageUrl && r.price != null && r.price > 0);
+        assert.equal(r.currency, "TRY");
+        assert(r.sizes.length > 0);
+        assert.equal(new Set(r.sizes.map((s) => s.label)).size, r.sizes.length);
+        assert.equal(
+          r.inStock,
+          r.sizes.some((s) => s.inStock),
+        );
+        assert(r.colorVariants?.length);
+        const requestedColor = new URL(target).searchParams.get(
+          "integration_color_hash",
+        );
+        if (requestedColor) assert.equal(r.colors[0], requestedColor);
+        for (const variant of r.colorVariants) {
+          assert(variant.url);
+          assert.equal(new URL(variant.url).hostname, new URL(target).hostname);
+          if (variant.imageUrl) {
+            assert.deepEqual(variant.sizes, r.sizes);
+            continue;
+          }
+          const selected = await checkUrl(variant.url);
+          assert(
+            selected.imageUrl &&
+              selected.sizes.length &&
+              selected.price != null,
+          );
+          assert(selected.colors.includes(variant.color));
+          assert.deepEqual(
+            selected.colorVariants?.find((v) => v.color === variant.color)
+              ?.sizes,
+            selected.sizes,
+          );
+        }
+        console.log("  PASS: product, sizes and color-specific URLs/data");
+      }
       console.log(
         "  RESULT:",
         JSON.stringify({
@@ -144,8 +189,9 @@ app.whenReady().then(async () => {
         }),
       );
     } catch (e) {
+      failures++;
       console.log("  scrape error:", e instanceof Error ? e.message : e);
     }
   }
-  app.quit();
+  app.exit(failures ? 1 : 0);
 });

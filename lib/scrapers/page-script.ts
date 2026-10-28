@@ -1637,3 +1637,73 @@ const GRATIS_BLOCK = `
 
 export const GRATIS_PAGE_SCRIPT =
   STORE_CORE_SCRIPT + GRATIS_BLOCK + "\n  return out;\n";
+
+/** Nike: server state supplies metadata; hydrated size inputs supply live stock. */
+export const NIKE_PAGE_SCRIPT = `
+  const state = JSON.parse(document.getElementById('__NEXT_DATA__')?.textContent || 'null')?.props?.pageProps;
+  const product = state?.selectedProduct;
+  if (!product?.productInfo?.fullTitle) throw new Error('Nike product data is missing');
+  // ACTIVE in server state means a listed SKU, not an available size.
+  let inputs = [];
+  for (let i = 0; i < 60; i++) {
+    inputs = Array.from(document.querySelectorAll('#size-selector input[type="radio"]'));
+    if (inputs.length) break;
+    await __sleep(250);
+  }
+  const soldOut = /SOLD_OUT|UNAVAILABLE/.test(product.statusModifier || '');
+  if (!inputs.length && !soldOut) throw new Error('Nike size availability did not load');
+  const sizes = inputs.length ? inputs.map(input => ({
+    label: (input.labels?.[0]?.textContent.trim() || input.value).replace(/\\s+(Tall|Short)$/i, ' · $1'),
+    inStock: !soldOut && !input.disabled && input.getAttribute('aria-disabled') !== 'true'
+      && !input.closest('.disabled')
+  })) : (product.sizes || []).map(size => ({ label: (size.localizedLabel || size.label).replace(/\\s+(Tall|Short)$/i, ' · $1'), inStock: false }));
+  const imageUrl = product.contentImages?.find(image => image.properties?.squarish?.url)?.properties.squarish.url || null;
+  const price = product.prices?.currentPrice ?? null;
+  const colorVariants = (state.colorwayImages || []).map(color => ({
+    color: color.colorDescription,
+    url: new URL(color.pdpUrl || color.path, location.origin).href,
+    // Other colors are fetched lazily so their size stock is never borrowed from this color.
+    ...(color.styleColor === product.styleColor ? { imageUrl, sizes, price } : {})
+  }));
+  return {
+    name: product.productInfo.fullTitle, price, currency: product.prices?.currency || 'TRY', imageUrl,
+    colors: colorVariants.map(v => v.color), colorVariants, sizes, inStock: sizes.some(s => s.inStock)
+  };
+`;
+
+/** Barçın (Akinon): the public JSON representation preserves the requested color. */
+export const BARCIN_PAGE_SCRIPT = `
+  const endpoint = new URL(location.href);
+  endpoint.searchParams.set('format', 'json');
+  const response = await fetch(endpoint.href, { signal: AbortSignal.timeout(8000) });
+  if (!response.ok) throw new Error('Barçın product request failed: ' + response.status);
+  const data = await response.json();
+  if (!data.product?.name || !Array.isArray(data.variants)) throw new Error('Barçın product data is missing');
+  const colorOptions = data.variants.find(v => v.attribute_key === 'integration_color_hash')?.options || [];
+  const selectedColor = endpoint.searchParams.get('integration_color_hash') || data.product.attributes?.integration_color_hash;
+  const selectedOption = colorOptions.find(color => color.value === selectedColor);
+  if (selectedColor && !selectedOption) throw new Error('Barçın requested color is missing');
+  const product = selectedOption?.product || data.product;
+  const sizeOptions = data.variants.find(v => v.attribute_key === 'integration_size')?.options;
+  if (!Array.isArray(sizeOptions) || !sizeOptions.length) throw new Error('Barçın size availability is missing');
+  // Akinon can fall back to another color for sold-out sizes; never report that color's stock.
+  const sizes = sizeOptions.filter(size => !selectedColor || size.product.attributes?.integration_color_hash === selectedColor).map(size => ({
+    label: size.label, inStock: size.in_stock === true, price: Number(size.product.price)
+  }));
+  const price = Number(product.price);
+  const imageUrl = product.productimage_set?.[0]?.image || null;
+  const colorVariants = colorOptions.map(color => {
+    const url = new URL(color.product.absolute_url, location.origin);
+    url.searchParams.set('integration_color_hash', color.value);
+    return {
+      color: color.label, url: url.href, price: Number(color.product.price), inStock: color.in_stock === true,
+      ...(color.value === selectedColor ? { imageUrl, sizes } : {})
+    };
+  });
+  // Put the requested color first; canonical product paths may differ from the incoming slug.
+  colorVariants.sort((a, b) => Number(b.color === selectedColor) - Number(a.color === selectedColor));
+  return {
+    name: product.name, price, currency: product.currency_type?.toUpperCase() || 'TRY', imageUrl,
+    colors: colorVariants.map(v => v.color), colorVariants, sizes, inStock: sizes.some(s => s.inStock)
+  };
+`;
