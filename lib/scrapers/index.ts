@@ -10,6 +10,7 @@ import {
   type Scraper,
 } from "./simple";
 import { sneaksupApi } from "./sneaksup";
+import { tommyApi } from "./tommy";
 import { victoriassecretApi } from "./victoriassecret";
 import { wunderApi } from "./wunder";
 import {
@@ -107,6 +108,7 @@ const scrapers: Scraper[] = [
       const productId = m ? m[1] : last;
       return productId ? { productId } : null;
     },
+    api: tommyApi,
   }),
   makeScraper({
     brand: "victoriassecret",

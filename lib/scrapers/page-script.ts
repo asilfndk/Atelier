@@ -960,7 +960,7 @@ const GENERIC_SIZE_BLOCK = `
         const cls = (e.className || '').toString();
         const ariaDis = e.getAttribute('aria-disabled');
         const disabled = e.disabled || ariaDis === 'true'
-          || /out-of-stock|disabled|unavailable|passive|sold|tüken|yok/i.test(cls);
+          || /out-of-stock|no-stock|disabled|unavailable|passive|sold|tüken|yok/i.test(cls);
         domSizes.push({ label, inStock: !disabled });
       });
       if (domSizes.length) {

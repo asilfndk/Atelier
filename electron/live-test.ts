@@ -35,6 +35,7 @@ const PARITY = new Set<string>([
   "boyner",
   "nike",
   "barcin",
+  "tommy",
 ]);
 
 // Brand listing/category pages — real product links are discovered from these.

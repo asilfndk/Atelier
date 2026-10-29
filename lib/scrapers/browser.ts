@@ -160,9 +160,17 @@ async function loadAndExtract(
   void load.catch(() => {});
   // Probe the page; a navigation mid-call leaves executeJavaScript pending
   // forever, so cap each probe at 2s (null = no answer).
-  const probe = (js: string): Promise<unknown> =>
+  // webContents.executeJavaScript also waits for did-stop-loading, which lets
+  // late self re-navigations (Watsons) settle before the brand script runs.
+  // The Cloudflare check passes `now`: it runs in the main frame right away,
+  // since a page that is still loading (challenge, Tommy) would otherwise
+  // answer null on every try and the loop below burned the whole budget.
+  const probe = (js: string, now = false): Promise<unknown> =>
     Promise.race([
-      win.webContents.executeJavaScript(js, true).catch(() => null),
+      (now
+        ? win.webContents.mainFrame.executeJavaScript(js, true)
+        : win.webContents.executeJavaScript(js, true)
+      ).catch(() => null),
       new Promise((r) => setTimeout(() => r(null), 2000)),
     ]);
   // Cloudflare interstitial (Boyner: "Bir dakika lütfen..."): dom-ready fires
@@ -173,6 +181,7 @@ async function loadAndExtract(
     const challenged = await probe(
       `!!(window._cf_chl_opt || document.getElementById('challenge-form')
         || /^(bir dakika|just a moment)/i.test(document.title))`,
+      true,
     );
     if (challenged === false) break;
     if (challenged && (i === 4 || i === 20)) win.webContents.reload();
