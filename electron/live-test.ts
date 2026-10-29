@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { BrowserWindow, app } from "electron";
 import { checkUrl, getScraperForUrl } from "@/lib/scrapers";
+import { scrapeWithBrowser } from "@/lib/scrapers/browser";
 
 app.disableHardwareAcceleration();
 // Scrape windows open and close; don't let Electron's default app.quit()
@@ -25,12 +26,22 @@ function applyHeaders(win: BrowserWindow): void {
   });
 }
 
+// Brands whose Layer-1 result must match a Layer-2 scrape of the same URL
+// (sizes, price, colors), so a port to an API can't drift from the page.
+const PARITY = new Set<string>([
+  "sneaksup",
+  "victoriassecret",
+  "wunder",
+  "boyner",
+  "nike",
+  "barcin",
+]);
+
 // Brand listing/category pages — real product links are discovered from these.
 const LISTINGS = [
-  "https://www.nike.com/tr/t/jordan-flight-fleece-crew-yakali-erkek-sweatshirtu-FBZe06Sx/IW6368-010",
+  // Nike — multi-colorway shoe + a "Tall" length option.
+  "https://www.nike.com/tr/t/hybrid-rn-erkek-antrenman-ayakkabisi-pxCEblh5/IV5066-600",
   "https://www.nike.com/tr/t/jordan-brooklyn-chore-erkek-ceketi-LOwsuQb8/IM8989-010",
-  "https://www.nike.com/tr/t/jordan-flight-erkek-varsity-ceket-BlTKTrj7/IM9145-010",
-  "https://www.nike.com/tr/t/air-jordan-1-retro-high-og-love-letter-erkek-ayakkabisi-BFqZfb/DZ5485-201",
   "https://www.barcin.com/nike-jordan-flt-wings-fleece-erkek-sweatshirt-siyah-siyah-beyaz/?integration_color_hash=Siyah-Siyah-Kırmızı",
 
   "https://www.zara.com/us/en/woman-dresses-l1066.html",
@@ -56,6 +67,7 @@ const LISTINGS = [
   "https://tr.tommy.com/erkek-tjm-regular-textured-kazak_208537",
   "https://www.victoriassecret.com.tr/victoria-s-secret-saten-dantel-detayli-askili-bluz-ve-firfirli-sort-takimi-VS27291321",
   "https://www.boyner.com.tr/nike-if1448-010-m-nk-df-acd25-short-kp-b-siyah-erkek-sort-p-15917358",
+  "https://www.boyner.com.tr/fn3868-010-nk-club-bb-po-gfx-hood-siyah-erkek-kapuson-regular-fit-baskili-sweatshirt-p-15605818",
   "https://wunder.com.tr/classic-england-polo-white-ubmw0502fa328-wth0001",
   "https://www.superstep.com.tr/urun/adidas-handball-spezial-kadin-bej-spor-ayakkabi/ki6678/",
   "https://shop.mango.com/tr/tr/p/kadın/etek/anvelop-kesim-sort-etek/27094095/99/00",
@@ -133,6 +145,23 @@ app.whenReady().then(async () => {
     console.log("  scrape:", target);
     try {
       const r = await checkUrl(target);
+      // simple.ts swallows Layer-1 errors; a silent browser fallback is a failure here.
+      if (scraper?.hasApi) {
+        assert.equal(
+          r.source,
+          "api",
+          "Layer 1 silently fell back to the browser",
+        );
+      }
+      if (PARITY.has(brand)) {
+        const b = await scrapeWithBrowser(target, scraper!.script);
+        const sizes = (s: typeof r.sizes) =>
+          s.map((x) => [x.label, x.inStock, x.price ?? null]);
+        assert.deepEqual(sizes(r.sizes), sizes(b.sizes));
+        assert.equal(r.price, b.price);
+        assert.deepEqual(r.colors, b.colors);
+        console.log("  PASS: layer parity");
+      }
       if (brand === "nike" || brand === "barcin") {
         assert(r.name && r.imageUrl && r.price != null && r.price > 0);
         assert.equal(r.currency, "TRY");
@@ -150,10 +179,6 @@ app.whenReady().then(async () => {
         for (const variant of r.colorVariants) {
           assert(variant.url);
           assert.equal(new URL(variant.url).hostname, new URL(target).hostname);
-          if (variant.imageUrl) {
-            assert.deepEqual(variant.sizes, r.sizes);
-            continue;
-          }
           const selected = await checkUrl(variant.url);
           assert(
             selected.imageUrl &&
@@ -161,6 +186,10 @@ app.whenReady().then(async () => {
               selected.price != null,
           );
           assert(selected.colors.includes(variant.color));
+          // Embedded per-color sizes must match that color's own page.
+          if (variant.sizes?.length) {
+            assert.deepEqual(variant.sizes, selected.sizes);
+          }
           assert.deepEqual(
             selected.colorVariants?.find((v) => v.color === variant.color)
               ?.sizes,

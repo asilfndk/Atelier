@@ -1,7 +1,7 @@
-import { Notification, app } from "electron";
+import { Notification } from "electron";
 import { openProduct, openSettings } from "./app-state";
 
-/** Local macOS notifications + dock badge. */
+/** Local macOS notifications. */
 
 function notify(title: string, body: string, onClick?: () => void): void {
   if (!Notification.isSupported()) return;
@@ -70,10 +70,4 @@ export function notifyUpdateAvailable(version: string): void {
     `Atelier v${version} is ready to install. Open Settings to update.`,
     () => openSettings(),
   );
-}
-
-/** Badge on the dock icon with the count of in-stock products. */
-export function setDockBadge(count: number): void {
-  if (process.platform !== "darwin" || !app.dock) return;
-  app.dock.setBadge(count > 0 ? String(count) : "");
 }

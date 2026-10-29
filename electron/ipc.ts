@@ -50,7 +50,7 @@ const settingsPatchSchema = z
  * preload as `window.api.*`.
  */
 export function registerIpc(): void {
-  ipcMain.handle("check-url", async (_e, url: string) => checkUrl(url));
+  ipcMain.handle("check-url", async (_e, url: string) => checkUrl(url, true));
 
   ipcMain.handle("track", async (_e, input: TrackInput & { url: string }) => {
     const scraper = getScraperForUrl(input.url);

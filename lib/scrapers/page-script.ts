@@ -72,7 +72,15 @@ export const ZARA_PAGE_SCRIPT = `
     if (out.sizes.length < 2) {
     const addBtn = Array.from(document.querySelectorAll('button, [role="button"]'))
       .find(b => /\\bADD\\b|EKLE|SEPETE EKLE/i.test((b.innerText || '')));
-    if (addBtn) { addBtn.click(); await __sleep(2000); }
+    if (addBtn) {
+      addBtn.click();
+      for (let i = 0, n = -1; i < 20; i++) {
+        await __sleep(100);
+        const c = document.querySelectorAll('.size-selector-sizes__size, .size-selector-sizes-size').length;
+        if (c && c === n) break;
+        n = c;
+      }
+    }
     const sizeEls = document.querySelectorAll('.size-selector-sizes__size, .size-selector-sizes-size');
     const seen = new Set();
     sizeEls.forEach(el => {
@@ -516,8 +524,10 @@ function makeItxrestScript(cfg: ItxrestScriptConfig): string {
   // The loop also waits for the page's own /product/<id>/detail call: that id is
   // the only reliable API productId when the URL carries no ?${cfg.productIdParam}=.
   let storeId = null, catalogId = null, langId = '${cfg.defaultLangId ?? "-43"}', apiProductId = null, detailUrl = null, altProductId = null;
+  const pel = new URL(location.href).searchParams.get('${cfg.productIdParam}');
+  const pelOk = !!pel && /^\\d+$/.test(pel);
   try {
-    for (let i = 0; i < 20 && !(storeId && apiProductId); i++) {
+    for (let i = 0; i < 20 && !(storeId && (apiProductId || pelOk)); i++) {
       for (const e of performance.getEntriesByType('resource')) {
         const url = String(e.name || '');
         if (url.indexOf('/itxrest/') < 0) continue;
@@ -533,7 +543,7 @@ function makeItxrestScript(cfg: ItxrestScriptConfig): string {
           if (xm) altProductId = xm[1];
         }
       }
-      if (!(storeId && apiProductId)) await __sleep(500);
+      if (!(storeId && (apiProductId || pelOk))) await __sleep(500);
     }
   } catch (e) {}
   // Fallback: store config embedded in inline scripts.
@@ -565,8 +575,7 @@ function makeItxrestScript(cfg: ItxrestScriptConfig): string {
       // JSON-LD sku, then the l/p-code digits (leading zeros stripped).
       const cands = [];
       if (apiProductId) cands.push(apiProductId);
-      const pel = new URL(location.href).searchParams.get('${cfg.productIdParam}');
-      if (pel && /^\\d+$/.test(pel)) cands.push(pel);
+      if (pelOk) cands.push(pel);
       if (altProductId) cands.push(altProductId);
       if (ldSku) cands.push(ldSku);
       const lm = location.pathname.match(/[lp](\\d+)(?:\\.html)?$/i);
@@ -583,7 +592,7 @@ function makeItxrestScript(cfg: ItxrestScriptConfig): string {
       const summariesOf = (d) => !d ? []
         : Array.isArray(d.bundleProductSummaries) && d.bundleProductSummaries.length ? d.bundleProductSummaries
         : d.detail && Array.isArray(d.detail.colors) && d.detail.colors.length ? [d] : [];
-      for (const id of cands) {
+      for (const id of new Set(cands)) {
         if (summariesOf(data).length) break;
         try {
           const r = await fetch(
@@ -929,7 +938,15 @@ const GENERIC_SIZE_BLOCK = `
         const t = (b.innerText || b.getAttribute('aria-label') || '').trim();
         return /SEPETE EKLE|SEPETE AT|ADD TO (BAG|CART|BASKET)|BEDEN SEÇ|BEDEN SEÇİN/i.test(t) && !/istek|wishlist|favori/i.test(t);
       });
-      if (cta) { try { cta.click(); } catch (e) {} await __sleep(1800); }
+      if (cta) {
+        try { cta.click(); } catch (e) {}
+        for (let i = 0, n = -1; i < 12; i++) {
+          await __sleep(150);
+          const c = collect().length;
+          if (c >= 2 && c === n) break;
+          n = c;
+        }
+      }
       els = collect();
     }
 
@@ -1653,7 +1670,8 @@ export const NIKE_PAGE_SCRIPT = `
   const soldOut = /SOLD_OUT|UNAVAILABLE/.test(product.statusModifier || '');
   if (!inputs.length && !soldOut) throw new Error('Nike size availability did not load');
   const sizes = inputs.length ? inputs.map(input => ({
-    label: (input.labels?.[0]?.textContent.trim() || input.value).replace(/\\s+(Tall|Short)$/i, ' · $1'),
+    // DOM shows "EU 40"; Layer 1 (localizedLabel) and other stores use the bare "40".
+    label: (input.labels?.[0]?.textContent.trim() || input.value).replace(/^EU\\s+/i, '').replace(/\\s+(Tall|Short)$/i, ' · $1'),
     inStock: !soldOut && !input.disabled && input.getAttribute('aria-disabled') !== 'true'
       && !input.closest('.disabled')
   })) : (product.sizes || []).map(size => ({ label: (size.localizedLabel || size.label).replace(/\\s+(Tall|Short)$/i, ' · $1'), inStock: false }));
@@ -1675,33 +1693,34 @@ export const NIKE_PAGE_SCRIPT = `
 export const BARCIN_PAGE_SCRIPT = `
   const endpoint = new URL(location.href);
   endpoint.searchParams.set('format', 'json');
-  const response = await fetch(endpoint.href, { signal: AbortSignal.timeout(8000) });
+  const response = await fetch(endpoint.href, { signal: AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error('Barçın product request failed: ' + response.status);
   const data = await response.json();
   if (!data.product?.name || !Array.isArray(data.variants)) throw new Error('Barçın product data is missing');
   const colorOptions = data.variants.find(v => v.attribute_key === 'integration_color_hash')?.options || [];
   const selectedColor = endpoint.searchParams.get('integration_color_hash') || data.product.attributes?.integration_color_hash;
   const selectedOption = colorOptions.find(color => color.value === selectedColor);
-  if (selectedColor && !selectedOption) throw new Error('Barçın requested color is missing');
+  if (selectedColor && colorOptions.length && !selectedOption) throw new Error('Barçın requested color is missing');
   const product = selectedOption?.product || data.product;
   const sizeOptions = data.variants.find(v => v.attribute_key === 'integration_size')?.options;
   if (!Array.isArray(sizeOptions) || !sizeOptions.length) throw new Error('Barçın size availability is missing');
   // Akinon can fall back to another color for sold-out sizes; never report that color's stock.
-  const sizes = sizeOptions.filter(size => !selectedColor || size.product.attributes?.integration_color_hash === selectedColor).map(size => ({
-    label: size.label, inStock: size.in_stock === true, price: Number(size.product.price)
+  const sizes = sizeOptions.filter(size => !selectedColor || size.product?.attributes?.integration_color_hash === selectedColor).map(size => ({
+    label: size.label, inStock: size.in_stock === true, price: Number(size.product?.price) || null
   }));
-  const price = Number(product.price);
+  if (!sizes.length) throw new Error('Barçın size availability is missing');
+  const price = Number(product.price) || null;
   const imageUrl = product.productimage_set?.[0]?.image || null;
+  // Put the requested color first; canonical product paths may differ from the incoming slug.
+  colorOptions.sort((a, b) => Number(b.value === selectedColor) - Number(a.value === selectedColor));
   const colorVariants = colorOptions.map(color => {
-    const url = new URL(color.product.absolute_url, location.origin);
+    const url = new URL(color.product?.absolute_url || '', location.origin);
     url.searchParams.set('integration_color_hash', color.value);
     return {
-      color: color.label, url: url.href, price: Number(color.product.price), inStock: color.in_stock === true,
+      color: color.label, url: url.href, price: Number(color.product?.price) || null, inStock: color.in_stock === true,
       ...(color.value === selectedColor ? { imageUrl, sizes } : {})
     };
   });
-  // Put the requested color first; canonical product paths may differ from the incoming slug.
-  colorVariants.sort((a, b) => Number(b.color === selectedColor) - Number(a.color === selectedColor));
   return {
     name: product.name, price, currency: product.currency_type?.toUpperCase() || 'TRY', imageUrl,
     colors: colorVariants.map(v => v.color), colorVariants, sizes, inStock: sizes.some(s => s.inStock)

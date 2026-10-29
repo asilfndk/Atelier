@@ -140,7 +140,6 @@ export default function Home() {
     setCheckingAll(true);
     try {
       await getApi().checkNow();
-      await refresh();
     } finally {
       setCheckingAll(false);
     }
@@ -221,7 +220,6 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto">
           <Watchlist
             products={products}
-            onChange={refresh}
             selectedId={selected?.id ?? null}
             onSelect={(p) => {
               // Clicking the selected product again closes the panel (toggle).
@@ -281,10 +279,7 @@ export default function Home() {
                     initialSize={selected?.targetSize ?? null}
                     initialColor={selected?.targetColor ?? null}
                     tracked={products}
-                    onTracked={() => {
-                      refresh();
-                      clearResult();
-                    }}
+                    onTracked={clearResult}
                   />
                   {/* key: remount so the old chart doesn't flash when the product changes */}
                   {selected && (

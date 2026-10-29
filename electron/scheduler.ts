@@ -1,5 +1,5 @@
 import cron, { type ScheduledTask } from "node-cron";
-import { checkUrl } from "@/lib/scrapers";
+import { checkUrl, getScraperForUrl } from "@/lib/scrapers";
 import {
   getSettings,
   listProducts,
@@ -7,13 +7,13 @@ import {
   updateProduct,
 } from "@/lib/repo";
 import type { ScrapeResult } from "@/lib/scrapers";
-import type { TrackedProduct } from "@/db/schema";
+import type { Settings, TrackedProduct } from "@/db/schema";
 import { emitProductsChanged } from "./app-state";
-import { notifyPriceDrop, notifyRestock, setDockBadge } from "./notifications";
+import { notifyPriceDrop, notifyRestock } from "./notifications";
 
 const DEFAULT_CRON = "*/15 * * * *";
 let task: ScheduledTask | null = null;
-let running = false;
+let current: Promise<void> | null = null;
 
 /**
  * Stock of the target size if one is set, otherwise the overall stock status.
@@ -37,10 +37,21 @@ function effectiveInStock(
   return res.inStock;
 }
 
-async function checkOne(p: TrackedProduct): Promise<void> {
+async function checkOne(
+  p: TrackedProduct,
+  // Global notification switches; evaluated together with per-product track*.
+  s: Settings,
+  // One scrape per URL per round: rows that share a URL (different size/color) reuse it.
+  memo: Map<string, Promise<ScrapeResult>>,
+): Promise<void> {
   let res: ScrapeResult;
   try {
-    res = await checkUrl(p.url);
+    let r = memo.get(p.url);
+    if (!r) {
+      r = checkUrl(p.url);
+      memo.set(p.url, r);
+    }
+    res = await r;
   } catch (err) {
     // Network/bot error: keep the current state, skip silently (edge cases #4, #6).
     console.warn(`[scheduler] ${p.brand} check skipped:`, err);
@@ -49,8 +60,6 @@ async function checkOne(p: TrackedProduct): Promise<void> {
 
   const wasInStock = p.lastInStock ?? false;
   const nowInStock = effectiveInStock(p, res) ?? wasInStock;
-  // Global notification switches (from settings); evaluated together with per-product track*.
-  const s = getSettings();
 
   // Stock transition: out → in (notify only once — edge case #8)
   if (s.notifyStock && p.trackStock && !wasInStock && nowInStock) {
@@ -95,38 +104,45 @@ async function checkOne(p: TrackedProduct): Promise<void> {
 }
 
 // In-round concurrency: saturates the browser semaphore (2) + leaves room for API-path checks.
+// runRound queues API-backed rows first so they don't wait behind browser scrapes.
 const CHECK_CONCURRENCY = 3;
 
-/** Check the whole watchlist in parallel (browser concurrency is limited separately). */
-export async function checkAll(): Promise<void> {
-  if (running) return; // prevent overlapping rounds
-  running = true;
-  try {
-    const queue = listProducts();
-    await Promise.all(
-      Array.from({ length: CHECK_CONCURRENCY }, async () => {
-        for (let p = queue.shift(); p; p = queue.shift()) {
-          try {
-            await checkOne(p);
-          } catch (err) {
-            // Isolate per product: a DB error (e.g. FK violation when the user
-            // untracks mid-round) must not reject the whole round and skip the
-            // badge/renderer refresh.
-            console.warn(`[scheduler] ${p.brand} #${p.id} failed:`, err);
-          }
-        }
-      }),
-    );
-    refreshBadge();
-    emitProductsChanged();
-  } finally {
-    running = false;
-  }
+/**
+ * Check the whole watchlist (browser concurrency is limited separately).
+ * A call during a running round joins it, so callers (Check now) resolve when it really ends.
+ */
+export function checkAll(): Promise<void> {
+  return (current ??= runRound().finally(() => {
+    current = null;
+  }));
 }
 
-export function refreshBadge(): void {
-  const inStock = listProducts().filter((p) => p.lastInStock).length;
-  setDockBadge(inStock);
+async function runRound(): Promise<void> {
+  const queue = listProducts();
+  // ponytail: ordering, not separate pools; split API and browser pools if rounds still stall
+  // Stable sort: newest-first order is kept within each group.
+  queue.sort(
+    (a, b) =>
+      Number(!!getScraperForUrl(b.url)?.hasApi) -
+      Number(!!getScraperForUrl(a.url)?.hasApi),
+  );
+  const s = getSettings();
+  const memo = new Map<string, Promise<ScrapeResult>>();
+  await Promise.all(
+    Array.from({ length: CHECK_CONCURRENCY }, async () => {
+      for (let p = queue.shift(); p; p = queue.shift()) {
+        try {
+          await checkOne(p, s, memo);
+        } catch (err) {
+          // Isolate per product: a DB error (e.g. FK violation when the user
+          // untracks mid-round) must not reject the whole round and skip the
+          // renderer refresh.
+          console.warn(`[scheduler] ${p.brand} #${p.id} failed:`, err);
+        }
+      }
+    }),
+  );
+  emitProductsChanged();
 }
 
 function schedule(expr: string): void {
@@ -143,7 +159,6 @@ function schedule(expr: string): void {
 
 export function startScheduler(): void {
   schedule(getSettings().checkIntervalCron);
-  refreshBadge();
   // Run one check on startup without waiting for the next cron boundary (user feedback).
   void checkAll();
 }

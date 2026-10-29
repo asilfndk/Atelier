@@ -6,7 +6,7 @@ import {
   resolveAsset,
   showWindow,
 } from "./app-state";
-import { checkAll, refreshBadge } from "./scheduler";
+import { checkAll } from "./scheduler";
 
 let tray: Tray | null = null;
 
@@ -27,7 +27,6 @@ export function updateTray(): void {
 
   // If any product is in stock, show the count next to the icon; otherwise icon only.
   tray.setTitle(inStock > 0 ? ` ${inStock}` : "");
-  refreshBadge();
 
   const menu = Menu.buildFromTemplate([
     { label: "Atelier", enabled: false },

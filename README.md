@@ -60,9 +60,9 @@ db/            Drizzle schema, migrations, better-sqlite3 connection
 
 ### Scraping (two-layer hybrid)
 
-Every brand scraper extends `BaseScraper` and runs a shared `check()` flow:
+Every brand is a `makeScraper({...})` config in `lib/scrapers/index.ts`, and all share one `check()` flow (`lib/scrapers/simple.ts`):
 
-1. **Layer 1 — internal REST API** (`fetchFromApi`): the fast path. Returns `null` when unsupported/blocked, falling through to layer 2.
+1. **Layer 1 — internal REST API** (the optional `api` function): the fast path. Returns `null` (or throws) when unsupported/blocked, falling through to layer 2.
 2. **Layer 2 — hidden `BrowserWindow`**: loads the page with realistic headers, runs an in-page extraction script (JSON-LD / DOM), then validates the result with a zod schema. Concurrency is capped at 2.
 
 All scrapers return a common shape:
@@ -109,7 +109,7 @@ npm run dist:x64
 ### Adding a new store scraper
 
 1. Add the layer-2 extraction script to `lib/scrapers/page-script.ts`. If the site has color variants, emit `colorVariants` (one per color, with its own URL) so picking a color updates image/sizes/price.
-2. Register the brand with a `makeScraper({ brand, hostname, script, parse })` entry in the `scrapers[]` list in `lib/scrapers/index.ts`. Write a class extending `BaseScraper` only when the store has a real internal API (see `gratis.ts`).
+2. Register the brand with a `makeScraper({ brand, hostname, script, parse })` entry in the `scrapers[]` list in `lib/scrapers/index.ts`. When the store has a real internal API, add an `api` function in its own file (see `gratis.ts`, `nike.ts`, `boyner.ts`), and add the brand to `PARITY` in `electron/live-test.ts` so the live test checks it against layer 2.
 3. Add the brand to `BRANDS` in `db/schema.ts` and a label in `lib/brands.ts`. The UI's store list reads these labels, and no migration is needed.
 4. Add a product URL to `LISTINGS` in `electron/live-test.ts` and run the live-test harness against it.
 

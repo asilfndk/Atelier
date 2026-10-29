@@ -1,17 +1,27 @@
-import type { Brand } from "@/db/schema";
-import type { BaseScraper } from "./base";
-import { GratisScraper } from "./gratis";
-import { LesBenjaminsScraper } from "./lesbenjamins";
-import { inditexParse, lastSegmentParse, makeScraper } from "./simple";
+import { barcinApi } from "./barcin";
+import { boynerApi } from "./boyner";
+import { gratisApi } from "./gratis";
+import { lesbenjaminsApi } from "./lesbenjamins";
+import { nikeApi } from "./nike";
+import {
+  inditexParse,
+  lastSegmentParse,
+  makeScraper,
+  type Scraper,
+} from "./simple";
+import { sneaksupApi } from "./sneaksup";
+import { victoriassecretApi } from "./victoriassecret";
+import { wunderApi } from "./wunder";
 import {
   BARCIN_PAGE_SCRIPT,
-  NIKE_PAGE_SCRIPT,
   BERSHKA_PAGE_SCRIPT,
   BOYNER_PAGE_SCRIPT,
   GENERIC_PAGE_SCRIPT,
+  GRATIS_PAGE_SCRIPT,
   LEFTIES_PAGE_SCRIPT,
   MANGO_PAGE_SCRIPT,
   MASSIMODUTTI_PAGE_SCRIPT,
+  NIKE_PAGE_SCRIPT,
   OYSHO_PAGE_SCRIPT,
   PULLANDBEAR_PAGE_SCRIPT,
   SEPHORA_PAGE_SCRIPT,
@@ -29,22 +39,7 @@ import type { ScrapeResult } from "./types";
 const P_CODE = /p(\d+)(?:\.html)?$/i;
 const LP_CODE = /[lp](\d+)(?:\.html)?$/i;
 
-const scrapers: BaseScraper[] = [
-  makeScraper({
-    brand: "nike",
-    hostname: "nike.com",
-    script: NIKE_PAGE_SCRIPT,
-    parse: (u) => {
-      const match = u.pathname.match(/^\/tr\/t\/[^/]+\/([A-Z0-9]+-\d{3})\/?$/i);
-      return match ? { productId: match[1] } : null;
-    },
-  }),
-  makeScraper({
-    brand: "barcin",
-    hostname: "barcin.com",
-    script: BARCIN_PAGE_SCRIPT,
-    parse: lastSegmentParse,
-  }),
+const scrapers: Scraper[] = [
   makeScraper({
     brand: "zara",
     hostname: "zara.com",
@@ -93,6 +88,7 @@ const scrapers: BaseScraper[] = [
     hostname: "sneaksup.com",
     script: SNEAKSUP_PAGE_SCRIPT,
     parse: lastSegmentParse,
+    api: sneaksupApi,
   }),
   makeScraper({
     brand: "sportinn",
@@ -123,11 +119,13 @@ const scrapers: BaseScraper[] = [
       const productId = m ? m[1] : last;
       return productId ? { productId } : null;
     },
+    api: victoriassecretApi,
   }),
   makeScraper({
     brand: "boyner",
     hostname: "boyner.com.tr",
     script: BOYNER_PAGE_SCRIPT,
+    api: boynerApi,
     // ...-p-15917358 → 15917358
     parse: (u) => {
       const m = u.pathname.match(/-p-(\d+)/i);
@@ -141,6 +139,7 @@ const scrapers: BaseScraper[] = [
     hostname: "wunder.com.tr",
     script: WUNDER_PAGE_SCRIPT,
     parse: lastSegmentParse,
+    api: wunderApi,
   }),
   makeScraper({
     brand: "superstep",
@@ -161,6 +160,8 @@ const scrapers: BaseScraper[] = [
     brand: "mango",
     hostname: "shop.mango.com",
     script: MANGO_PAGE_SCRIPT,
+    // No JSON-LD; Next.js flight data (absent on the Vercel checkpoint page).
+    ready: "Array.isArray(self.__next_f)",
     // /tr/tr/p/.../27045166/99/00 → first 6+ digit segment is the product code
     parse: (u) => {
       const parts = u.pathname.split("/").filter(Boolean);
@@ -182,8 +183,46 @@ const scrapers: BaseScraper[] = [
       return { productId: m ? m[1] : slug };
     },
   }),
-  new GratisScraper(),
-  new LesBenjaminsScraper(),
+  makeScraper({
+    brand: "gratis",
+    hostname: "gratis.com",
+    script: GRATIS_PAGE_SCRIPT,
+    // .../<slug>-p-10209728 → product code is in the last "-p-" segment
+    parse: (u) => {
+      const m = u.pathname.match(/-p-(\d+)\/?$/);
+      return m ? { productId: m[1] } : null;
+    },
+    api: gratisApi,
+  }),
+  makeScraper({
+    brand: "lesbenjamins",
+    hostname: "lesbenjamins.com",
+    script: GENERIC_PAGE_SCRIPT,
+    // /products/<handle> anywhere in the path (also under /collections/<cat>/)
+    parse: (u) => {
+      const m = u.pathname.match(/\/products\/([\w-]+)/);
+      return m ? { productId: m[1] } : null;
+    },
+    api: lesbenjaminsApi,
+  }),
+  makeScraper({
+    brand: "nike",
+    hostname: "nike.com",
+    script: NIKE_PAGE_SCRIPT,
+    parse: (u) => {
+      const m = u.pathname.match(/^\/tr\/t\/[^/]+\/([A-Z0-9]+-\d{3})\/?$/i);
+      return m ? { productId: m[1] } : null;
+    },
+    api: nikeApi,
+  }),
+  makeScraper({
+    brand: "barcin",
+    hostname: "barcin.com",
+    // Color-aware Layer 2: a color-blind scrape would record the default color's stock.
+    script: BARCIN_PAGE_SCRIPT,
+    parse: lastSegmentParse,
+    api: barcinApi,
+  }),
   makeScraper({
     brand: "watsons",
     hostname: "watsons.com.tr",
@@ -197,27 +236,35 @@ const scrapers: BaseScraper[] = [
 ];
 
 /** Return the scraper that can handle the URL (null if none) */
-export function getScraperForUrl(url: string): BaseScraper | null {
+export function getScraperForUrl(url: string): Scraper | null {
   return scrapers.find((s) => s.canHandle(url)) ?? null;
 }
 
-/** Return the scraper for a brand name */
-export function getScraperByBrand(brand: Brand): BaseScraper | null {
-  return scrapers.find((s) => s.brand === brand) ?? null;
-}
+// ponytail: in-flight only, no TTL cache; add one if a click right after a round should reuse the result
+const inflight = new Map<string, Promise<ScrapeResult>>();
 
 /**
  * Check a URL. Throws a meaningful error when unsupported.
+ * Concurrent calls for the same URL share one scrape.
  */
-export async function checkUrl(url: string): Promise<ScrapeResult> {
+export async function checkUrl(
+  url: string,
+  interactive = false,
+): Promise<ScrapeResult> {
   const scraper = getScraperForUrl(url);
   if (!scraper) {
     throw new Error(
       "This link isn't supported. Paste a product link from one of the supported stores.",
     );
   }
-  return scraper.check(url);
+  let p = inflight.get(url);
+  // ponytail: a caller that joins an in-flight background check keeps that check's queue position
+  if (!p) {
+    p = scraper.check(url, interactive).finally(() => inflight.delete(url));
+    inflight.set(url, p);
+  }
+  return p;
 }
 
 export type { ScrapeResult } from "./types";
-export { BaseScraper } from "./base";
+export type { Scraper };

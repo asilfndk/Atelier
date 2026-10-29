@@ -1,33 +1,65 @@
-import { BaseScraper } from "./base";
 import type { Brand } from "@/db/schema";
-import type { ParsedProduct, ProductStock } from "./types";
+import { resolveImageUrl } from "./base";
+import { normalizeRaw, scrapeWithBrowser } from "./browser";
+import {
+  productStockSchema,
+  type ParsedProduct,
+  type ProductStock,
+  type ScrapeResult,
+} from "./types";
 
 /**
- * Config-driven scraper for brands with no Layer-1 API: the per-brand
- * differences are just a hostname, a productId extraction rule and a page
- * script. Brands with a real `fetchFromApi` (Gratis) keep their own class.
+ * Config-driven scraper: the per-brand differences are a hostname, a
+ * productId extraction rule, a Layer-2 page script and, for brands with an
+ * internal API (Gratis, Nike…), an optional Layer-1 `api` function.
  */
-export interface SimpleScraperConfig {
+export interface ScraperConfig {
   brand: Brand;
-  /** Hostname substring that `canHandle` matches (e.g. "zara.com") */
+  /** Hostname `canHandle` matches exactly or as a subdomain (e.g. "zara.com") */
   hostname: string;
   /** Layer-2 page script (from page-script.ts) */
   script: string;
   /** Extract productId (+ optional locale) from the URL; null = not a product page */
   parse: (u: URL) => { productId: string; locale?: string } | null;
+  /** Layer 1 — the store's internal API; null on bot block/unsupported falls through to the browser */
+  api?: (parsed: ParsedProduct) => Promise<ProductStock | null>;
+  /** In-page JS expression, truthy once the page is ready to scrape (default: JSON-LD present) */
+  ready?: string;
 }
 
-class SimpleScraper extends BaseScraper {
-  readonly brand: Brand;
+/** Make relative images absolute (the packaged renderer runs on file://) and tag the layer */
+function finish(
+  r: ProductStock,
+  base: string,
+  source: ScrapeResult["source"],
+): ScrapeResult {
+  return {
+    ...r,
+    imageUrl: resolveImageUrl(r.imageUrl, base),
+    colorVariants: r.colorVariants?.map((c) =>
+      c.imageUrl ? { ...c, imageUrl: resolveImageUrl(c.imageUrl, base) } : c,
+    ),
+    source,
+  };
+}
 
-  constructor(private readonly cfg: SimpleScraperConfig) {
-    super();
+export class Scraper {
+  readonly brand: Brand;
+  readonly script: string;
+
+  constructor(private readonly cfg: ScraperConfig) {
     this.brand = cfg.brand;
+    this.script = cfg.script;
+  }
+
+  get hasApi(): boolean {
+    return !!this.cfg.api;
   }
 
   canHandle(url: string): boolean {
     try {
-      return new URL(url).hostname.includes(this.cfg.hostname);
+      const h = new URL(url).hostname;
+      return h === this.cfg.hostname || h.endsWith("." + this.cfg.hostname);
     } catch {
       return false;
     }
@@ -48,18 +80,46 @@ class SimpleScraper extends BaseScraper {
     }
   }
 
-  async fetchFromApi(parsed: ParsedProduct): Promise<ProductStock | null> {
-    void parsed;
-    return null;
-  }
+  /** Layer 1 (internal API, schema-checked) first, hidden BrowserWindow on failure. */
+  async check(url: string, interactive = false): Promise<ScrapeResult> {
+    const parsed = this.parseUrl(url);
+    if (!parsed) {
+      throw new Error(`Could not parse the URL for this brand: ${url}`);
+    }
 
-  pageScript(): string {
-    return this.cfg.script;
+    if (this.cfg.api) {
+      try {
+        const r = await this.cfg.api(parsed);
+        if (r) {
+          const v = productStockSchema.safeParse(normalizeRaw(r));
+          if (!v.success) {
+            throw new Error(
+              `API data does not match the schema: ${v.error.message}`,
+            );
+          }
+          return finish(v.data, parsed.url, "api");
+        }
+      } catch (err) {
+        console.warn(
+          `[${this.brand}] internal API failed, falling back to browser:`,
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+
+    return finish(
+      await scrapeWithBrowser(parsed.url, this.cfg.script, {
+        interactive,
+        ready: this.cfg.ready,
+      }),
+      parsed.url,
+      "browser",
+    );
   }
 }
 
-export function makeScraper(cfg: SimpleScraperConfig): BaseScraper {
-  return new SimpleScraper(cfg);
+export function makeScraper(cfg: ScraperConfig): Scraper {
+  return new Scraper(cfg);
 }
 
 /**

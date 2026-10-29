@@ -1,3 +1,4 @@
+import { parseTrPrice } from "./base";
 import { productStockSchema, type ProductStock } from "./types";
 
 /**
@@ -17,12 +18,15 @@ const MAX_CONCURRENT = 2;
 let active = 0;
 const queue: Array<() => void> = [];
 
-async function acquire(): Promise<void> {
+// `front`: an interactive check (paste, click) jumps ahead of queued background scrapes.
+async function acquire(front = false): Promise<void> {
   if (active < MAX_CONCURRENT) {
     active++;
     return;
   }
-  await new Promise<void>((resolve) => queue.push(resolve));
+  await new Promise<void>((resolve) =>
+    queue[front ? "unshift" : "push"](resolve),
+  );
   active++;
 }
 
@@ -79,13 +83,16 @@ function applyRealisticHeaders(win: import("electron").BrowserWindow): void {
 export async function scrapeWithBrowser(
   url: string,
   pageScript: string,
+  // interactive: jump the queue; ready: in-page JS expression that is truthy once
+  // the page state is populated (default: a JSON-LD script exists).
+  opts: { interactive?: boolean; ready?: string } = {},
   // Budget must cover load + settle + in-page waits: the itxrest scripts
   // (P&B/Lefties) alone may spend ~10s discovering endpoints.
   timeoutMs = 35000,
 ): Promise<ProductStock> {
   const { BrowserWindow } = loadElectron();
 
-  await acquire();
+  await acquire(opts.interactive);
   let win: import("electron").BrowserWindow | null = null;
 
   try {
@@ -108,7 +115,7 @@ export async function scrapeWithBrowser(
     blockHeavyResources(win);
 
     const raw = await withTimeout(
-      loadAndExtract(win, url, pageScript),
+      loadAndExtract(win, url, pageScript, opts.ready),
       timeoutMs,
     );
 
@@ -130,6 +137,7 @@ async function loadAndExtract(
   win: import("electron").BrowserWindow,
   url: string,
   pageScript: string,
+  ready?: string,
 ): Promise<unknown> {
   // On ERR_ABORTED (locale redirect) and ERR_FAILED (a failed sub-resource/redirect
   // marks the main frame "failed") the DOM still renders — swallow and continue
@@ -170,13 +178,14 @@ async function loadAndExtract(
     if (challenged && (i === 4 || i === 20)) win.webContents.reload();
     await new Promise((r) => setTimeout(r, 500));
   }
-  // Wait for the page to populate its JS state — poll for JSON-LD instead of a
-  // flat sleep so ready pages don't pay the full 3s.
+  // Wait for the page to populate its JS state — poll for JSON-LD (or the
+  // scraper's own `ready` check) instead of a flat sleep so ready pages don't
+  // pay the full 3s.
   for (let i = 0; i < 10; i++) {
-    const hasLd = await probe(
-      `!!document.querySelector('script[type="application/ld+json"]')`,
+    const isReady = await probe(
+      ready ?? `!!document.querySelector('script[type="application/ld+json"]')`,
     );
-    if (hasLd) break;
+    if (isReady) break;
     await new Promise((r) => setTimeout(r, 300));
   }
   // async wrapper: brand scripts may await to open the size panel.
@@ -222,7 +231,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   ]).finally(() => clearTimeout(timer));
 }
 
-/** Normalizes raw page data into ProductStock (used by the browser path only) */
+/** Normalizes raw scraper data (both layers) into ProductStock */
 export function normalizeRaw(raw: unknown): unknown {
   if (raw && typeof raw === "object" && "__error" in raw) {
     throw new Error(
@@ -232,10 +241,7 @@ export function normalizeRaw(raw: unknown): unknown {
   const r = (raw ?? {}) as Record<string, unknown>;
   const toNumber = (v: unknown): number | null => {
     if (typeof v === "number") return Number.isFinite(v) ? v : null;
-    if (typeof v === "string") {
-      const n = parseFloat(v.replace(/[^\d.,]/g, "").replace(",", "."));
-      return Number.isFinite(n) ? n : null;
-    }
+    if (typeof v === "string") return parseTrPrice(v);
     return null;
   };
   const normalizeSizes = (v: unknown) =>

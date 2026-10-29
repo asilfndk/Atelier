@@ -1,7 +1,3 @@
-import type { Brand } from "@/db/schema";
-import { scrapeWithBrowser } from "./browser";
-import type { ParsedProduct, ProductStock, ScrapeResult } from "./types";
-
 /** Shared HTTP headers that make requests look like a browser */
 export const BROWSER_HEADERS: Record<string, string> = {
   "User-Agent":
@@ -15,7 +11,7 @@ export const BROWSER_HEADERS: Record<string, string> = {
  * and root-relative ("/x") values are resolved against the product URL; in the
  * packaged app the renderer loads from a file:// origin, so raw values fail to load.
  */
-function resolveImageUrl(
+export function resolveImageUrl(
   imageUrl: string | null,
   baseUrl: string,
 ): string | null {
@@ -30,84 +26,52 @@ function resolveImageUrl(
   }
 }
 
-export abstract class BaseScraper {
-  abstract readonly brand: Brand;
+/** fetch + timeout helper (for internal API calls); throws on a non-2xx status */
+export async function fetchText(
+  url: string,
+  timeoutMs = 8000,
+  headers: Record<string, string> = {},
+): Promise<string> {
+  const res = await fetch(url, {
+    headers: { ...BROWSER_HEADERS, ...headers },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.text();
+}
 
-  /** Can this scraper handle the given URL? */
-  abstract canHandle(url: string): boolean;
+export const fetchJson = async (
+  ...args: Parameters<typeof fetchText>
+): Promise<unknown> => JSON.parse(await fetchText(...args)) as unknown;
 
-  /** Extract brand + productId from the URL (null when invalid) */
-  abstract parseUrl(url: string): ParsedProduct | null;
+/** The parsed `__NEXT_DATA__` script of a Next.js page (null when absent) */
+export function nextData(html: string) {
+  const json = html.match(
+    /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/,
+  )?.[1];
+  return json ? JSON.parse(json) : null;
+}
 
-  /**
-   * Layer 1 — fetch stock from the brand's internal REST API.
-   * Return null on bot block/timeout/unsupported (falls back to the browser).
-   */
-  abstract fetchFromApi(parsed: ParsedProduct): Promise<ProductStock | null>;
+/** A `<meta property|itemprop|name="key" content="…">` value (null when absent) */
+export function meta(html: string, key: string): string | null {
+  const k = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return (
+    html.match(
+      new RegExp(
+        `<meta[^>]*(?:property|itemprop|name)="${k}"[^>]*content="([^"]*)"`,
+      ),
+    )?.[1] ?? null
+  );
+}
 
-  /**
-   * Layer 2 — extraction script executed inside the page.
-   * Must `return { name, price, currency, imageUrl, colors, sizes, inStock }`.
-   */
-  abstract pageScript(): string;
-
-  /**
-   * Shared flow: internal API first, hidden BrowserWindow on failure.
-   */
-  async check(url: string): Promise<ScrapeResult> {
-    const parsed = this.parseUrl(url);
-    if (!parsed) {
-      throw new Error(`Could not parse the URL for this brand: ${url}`);
-    }
-
-    // Layer 1 — internal API
-    try {
-      const apiResult = await this.fetchFromApi(parsed);
-      if (apiResult) {
-        return {
-          ...apiResult,
-          imageUrl: resolveImageUrl(apiResult.imageUrl, parsed.url),
-          source: "api",
-        };
-      }
-    } catch (err) {
-      console.warn(
-        `[${this.brand}] internal API failed, falling back to browser:`,
-        err instanceof Error ? err.message : err,
-      );
-    }
-
-    // Layer 2 — hidden BrowserWindow
-    const browserResult = await scrapeWithBrowser(
-      parsed.url,
-      this.pageScript(),
-    );
-    return {
-      ...browserResult,
-      imageUrl: resolveImageUrl(browserResult.imageUrl, parsed.url),
-      source: "browser",
-    };
-  }
-
-  /** fetch + timeout helper (for internal API calls) */
-  protected async fetchJson(
-    url: string,
-    timeoutMs = 8000,
-    extraHeaders: Record<string, string> = {},
-  ): Promise<unknown> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetch(url, {
-        headers: { ...BROWSER_HEADERS, ...extraHeaders },
-        signal: controller.signal,
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      return await res.json();
-    } finally {
-      clearTimeout(timer);
-    }
-  }
+/** tr-TR price: "6.159,00" = 6159 (dot = thousands, comma = decimal); port of page-script's parseTRNumber */
+export function parseTrPrice(v: unknown): number | null {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  let s = String(v ?? "").replace(/[^\d.,]/g, "");
+  if (!s) return null;
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  else if ((s.match(/\./g) || []).length > 1) s = s.replace(/\./g, "");
+  else if (/^\d{1,3}\.\d{3}$/.test(s)) s = s.replace(".", "");
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : null;
 }

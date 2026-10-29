@@ -148,7 +148,6 @@ export function ProductResult({
   const [notifyStock, setNotifyStock] = useState(true);
   const [notifyPrice, setNotifyPrice] = useState(true);
   const [tracking, setTracking] = useState(false);
-  const [done, setDone] = useState(false);
 
   async function track() {
     setTracking(true);
@@ -174,7 +173,6 @@ export function ProductResult({
         sizes: activeSizes,
         colors: result.colors,
       });
-      setDone(true);
       onTracked();
     } finally {
       setTracking(false);
@@ -303,29 +301,22 @@ export function ProductResult({
             type="button"
             onClick={track}
             disabled={
-              alreadyTracked ||
-              tracking ||
-              done ||
-              (!notifyStock && !notifyPrice)
+              alreadyTracked || tracking || (!notifyStock && !notifyPrice)
             }
             className={cn(
               "no-drag flex h-10 items-center gap-2 px-5 text-sm font-medium transition-all",
-              done || alreadyTracked
+              alreadyTracked
                 ? "bg-in-stock text-white"
                 : "bg-ink text-paper-raised hover:brightness-110",
               "disabled:cursor-not-allowed disabled:opacity-50",
             )}
           >
-            {done || alreadyTracked ? (
+            {alreadyTracked ? (
               <Check className="h-4 w-4" />
             ) : (
               <Bell className="h-4 w-4" />
             )}
-            {alreadyTracked
-              ? "In your watchlist"
-              : done
-                ? "Added to watchlist"
-                : "Add to Watchlist"}
+            {alreadyTracked ? "In your watchlist" : "Add to Watchlist"}
           </button>
           <button
             type="button"

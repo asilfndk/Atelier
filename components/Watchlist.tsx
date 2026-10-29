@@ -10,14 +10,13 @@ import type { TrackedProduct } from "@/types/global";
 
 interface Props {
   products: TrackedProduct[];
-  onChange: () => void;
   /** Show the product in the right panel on click (does not open a browser). */
   onSelect: (product: TrackedProduct) => void;
   /** The product open in the right panel — used to highlight its row. */
   selectedId?: number | null;
 }
 
-export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
+export function Watchlist({ products, onSelect, selectedId }: Props) {
   // Periodic re-render so relative times ("3 min ago") advance live.
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -27,12 +26,10 @@ export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
 
   async function remove(id: number) {
     await getApi().untrack(id);
-    onChange();
   }
 
   async function togglePriceTracking(p: TrackedProduct) {
     await getApi().updateProduct(p.id, { trackPrice: !p.trackPrice });
-    onChange();
   }
 
   if (products.length === 0) {
