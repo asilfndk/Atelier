@@ -10,6 +10,7 @@ import {
   type Scraper,
 } from "./simple";
 import { sneaksupApi } from "./sneaksup";
+import { superstepApi } from "./superstep";
 import { tommyApi } from "./tommy";
 import { victoriassecretApi } from "./victoriassecret";
 import { wunderApi } from "./wunder";
@@ -157,6 +158,7 @@ const scrapers: Scraper[] = [
           : parts[parts.length - 1]) ?? "";
       return productId ? { productId } : null;
     },
+    api: superstepApi,
   }),
   makeScraper({
     brand: "mango",

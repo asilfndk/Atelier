@@ -917,7 +917,7 @@ const STORE_CORE_SCRIPT = `
 /** Generic size block: best-effort from the DOM (wide token — letters + numeric + half sizes). */
 const GENERIC_SIZE_BLOCK = `
   try {
-    const TOKEN = /^(XXS|XS|S|M|L|XL|XXL|XXXL|[2-6]XL|ONE SIZE|TEK BEDEN|STD|STD\\.|U|\\d{1,3}([.,/]\\d{1,2})?)$/i;
+    const TOKEN = /^(XXS|XS|S|M|L|XL|XXL|XXXL|[2-6]XL|ONE SIZE|TEK BEDEN|STD|STD\\.|U|\\d{1,2} Yaş|\\d{1,3}([.,/]\\d{1,2})?)$/i;
     const SEL = 'button, li, [role="button"], [role="option"], [role="radio"], label, a';
     function collect() {
       const cands = Array.from(document.querySelectorAll(SEL))
@@ -932,23 +932,10 @@ const GENERIC_SIZE_BLOCK = `
       return group;
     }
 
-    let els = collect();
-    if (els.length < 2) {
-      const cta = Array.from(document.querySelectorAll('button, [role="button"], a')).find((b) => {
-        const t = (b.innerText || b.getAttribute('aria-label') || '').trim();
-        return /SEPETE EKLE|SEPETE AT|ADD TO (BAG|CART|BASKET)|BEDEN SEÇ|BEDEN SEÇİN/i.test(t) && !/istek|wishlist|favori/i.test(t);
-      });
-      if (cta) {
-        try { cta.click(); } catch (e) {}
-        for (let i = 0, n = -1; i < 12; i++) {
-          await __sleep(150);
-          const c = collect().length;
-          if (c >= 2 && c === n) break;
-          n = c;
-        }
-      }
-      els = collect();
-    }
+    // No CTA click: on every GENERIC store the sizes are already in the DOM,
+    // and "SEPETE EKLE" adds sizeless items to the cart (Watsons then
+    // re-navigates in a loop, ~5x slower).
+    const els = collect();
 
     if (els.length >= 2) {
       const seen = new Set();
