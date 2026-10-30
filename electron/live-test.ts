@@ -117,6 +117,7 @@ app.whenReady().then(async () => {
   const targets = argUrls.length ? argUrls : LISTINGS;
   // Stores fail transiently (SSL handshakes, bot walls): failed URLs go to the
   // back of the queue for one retry before they count.
+  const apiBlocked = process.env.LIVE_API_BLOCKED?.split(",") ?? [];
   const queue = [...targets];
   const failed = new Map<string, string>();
   const retried = new Set<string>();
@@ -160,7 +161,9 @@ app.whenReady().then(async () => {
     try {
       const r = await checkUrl(target);
       // simple.ts swallows Layer-1 errors; a silent browser fallback is a failure here.
-      if (scraper?.hasApi) {
+      if (apiBlocked.includes(brand) && r.source !== "api") {
+        console.log("  WARN: Layer 1 blocked from this IP, browser result used");
+      } else if (scraper?.hasApi) {
         assert.equal(
           r.source,
           "api",

@@ -43,3 +43,7 @@ jobs:
       - run: npx electron dist-electron/scheduler-test.js
       - if: ${{ !cancelled() }}
         run: npx electron dist-electron/live-test.js
+        env:
+          # These stores refuse Layer-1 calls from GitHub's IPs (SneaksUp: HTTP 403)
+          # but serve the page, so only a local run can prove their APIs.
+          LIVE_API_BLOCKED: sneaksup,victoriassecret
