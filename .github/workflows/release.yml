@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  # Dry run: packages and uploads artifacts, never publishes.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  package:
+    needs: ci
+    runs-on: macos-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Tag must match package.json
+        if: github.event_name == 'push'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: test "$TAG" = "v$(node -p "require('./package.json').version")"
+      - run: npm run build
+      - run: npx electron-builder --mac --publish never
+        env:
+          NODE_OPTIONS: --experimental-require-module
+      # The updater trusts latest-mac.yml, and afterPack only verifies signatures.
+      - name: Verify artifacts
+        run: |
+          native=Contents/Resources/app.asar.unpacked/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+          test "$(lipo -archs "release/mac-arm64/Atelier.app/$native")" = arm64
+          test "$(lipo -archs "release/mac/Atelier.app/$native")" = x86_64
+          version=$(node -p "require('./package.json').version")
+          grep -qx "version: $version" release/latest-mac.yml
+          test "$(grep -c 'url: .*\.dmg$' release/latest-mac.yml)" = 2
+      - if: github.event_name != 'push'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: atelier-dry-run
+          retention-days: 1
+          path: |
+            release/*.dmg
+            release/*.blockmap
+            release/latest-mac.yml
+      - name: Publish
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: >
+          gh release create "$TAG" release/*.dmg release/*.blockmap release/latest-mac.yml
+          --title "Atelier $TAG" --generate-notes --verify-tag --latest

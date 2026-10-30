@@ -1,0 +1,45 @@
+name: Live tests
+
+# Hits real stores, so it stays out of ci.yml: stores change on their own schedule
+# (nightly catches that) and a store outage must not block unrelated work.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+    paths:
+      - lib/scrapers/**
+      - electron/live-test.ts
+      - electron/scheduler-test.ts
+      - electron/scheduler.ts
+      - package-lock.json
+      - .github/workflows/live.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  live:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # scheduler-test opens the DB, so better-sqlite3 must match Electron's ABI.
+      - run: npm run rebuild
+      - run: >
+          npx esbuild electron/live-test.ts electron/scheduler-test.ts
+          --bundle --platform=node --target=node20 --format=cjs --tsconfig=tsconfig.json
+          --external:electron --external:better-sqlite3 --outdir=dist-electron
+      - run: npx electron dist-electron/scheduler-test.js
+      - if: ${{ !cancelled() }}
+        run: npx electron dist-electron/live-test.js

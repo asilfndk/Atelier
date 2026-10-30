@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { appendFileSync } from "node:fs";
 import { BrowserWindow, app } from "electron";
 import { checkUrl, getScraperForUrl } from "@/lib/scrapers";
 import { scrapeWithBrowser } from "@/lib/scrapers/browser";
@@ -111,11 +112,23 @@ async function discover(listUrl: string): Promise<string[]> {
 }
 
 app.whenReady().then(async () => {
-  let failures = 0;
   // Specific listing URLs may be passed via argv; otherwise try them all.
   const argUrls = process.argv.filter((a) => a.startsWith("http"));
   const targets = argUrls.length ? argUrls : LISTINGS;
-  for (const list of targets) {
+  // Stores fail transiently (SSL handshakes, bot walls): failed URLs go to the
+  // back of the queue for one retry before they count.
+  const queue = [...targets];
+  const failed = new Map<string, string>();
+  const retried = new Set<string>();
+  const fail = (url: string, reason: string) => {
+    failed.set(url, reason.split("\n")[0]);
+    if (!retried.has(url)) {
+      retried.add(url);
+      queue.push(url);
+    }
+  };
+  for (const list of queue) {
+    if (retried.has(list)) await sleep(10_000);
     const scraper = getScraperForUrl(list);
     const brand = scraper?.brand ?? "?";
     console.log(`\n=== [${brand}] ${list}`);
@@ -140,7 +153,7 @@ app.whenReady().then(async () => {
       console.log(
         "  → no product link found (bot block or different structure)",
       );
-      failures++;
+      fail(list, "no product link found");
       continue;
     }
     console.log("  scrape:", target);
@@ -218,10 +231,20 @@ app.whenReady().then(async () => {
           })),
         }),
       );
+      failed.delete(list);
     } catch (e) {
-      failures++;
+      fail(list, e instanceof Error ? e.message : String(e));
       console.log("  scrape error:", e instanceof Error ? e.message : e);
     }
   }
-  app.exit(failures ? 1 : 0);
+  const flaky = [...retried].filter((u) => !failed.has(u));
+  const summary = [
+    `**Live test: ${targets.length - failed.size}/${targets.length} passed**`,
+    ...[...failed].map(([u, reason]) => `- FAIL ${u}: ${reason}`),
+    ...flaky.map((u) => `- passed on retry: ${u}`),
+  ].join("\n");
+  console.log(`\n${summary}`);
+  if (process.env.GITHUB_STEP_SUMMARY)
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
+  app.exit(failed.size ? 1 : 0);
 });

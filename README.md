@@ -32,7 +32,7 @@ Grab the latest `.dmg` from the [**Releases**](https://github.com/asilfndk/indit
 
 ## Tech stack
 
-- **Electron 41** — desktop shell (main + preload processes)
+- **Electron 42** — desktop shell (main + preload processes)
 - **Next.js 16** (App Router) — renderer only, statically exported (`output: "export"`)
 - **TypeScript** · **Tailwind CSS v4** · **framer-motion** · **lucide-react**
 - **SQLite** (`better-sqlite3`) + **Drizzle ORM**
@@ -70,7 +70,7 @@ All scrapers return a common shape:
 
 ## Development
 
-> Requires Node.js and npm. `better-sqlite3` is a native module — if you change the Electron/Node ABI, run `npm run rebuild`.
+> Requires Node.js 22.18+ and npm. `better-sqlite3` is a native module — if you change the Electron/Node ABI, run `npm run rebuild`.
 
 ```bash
 npm install
@@ -102,9 +102,17 @@ npm run dist:x64
 | `npm run dist`        | Package macOS `.dmg` (arm64 + x64)                |
 | `npm run rebuild`     | Rebuild `better-sqlite3` against the Electron ABI |
 | `npm run lint`        | ESLint                                            |
+| `npm test`            | Unit tests (`node:test`)                          |
 | `npm run db:generate` | Generate a Drizzle migration                      |
 | `npm run db:migrate`  | Apply migrations (dev)                            |
 | `npm run db:studio`   | Drizzle Studio                                    |
+
+### CI/CD
+
+- **CI** (`.github/workflows/ci.yml`): formatting, lint, types, unit tests, build and `npm audit` on every push to `main` and every PR.
+- **Release** (`.github/workflows/release.yml`): pushing a `vX.Y.Z` tag that matches `package.json` runs CI, builds and verifies both DMGs, then publishes the GitHub release the in-app updater reads. Run it manually for a dry run that only uploads artifacts.
+- **Live tests** (`.github/workflows/live.yml`): real-store scraper and scheduler checks, nightly and on pushes touching scrapers, the scheduler or the lockfile. Separate from CI so a store outage can't block unrelated work.
+- **Dependabot** opens weekly PRs for npm packages and GitHub Actions.
 
 ### Adding a new store scraper
 
