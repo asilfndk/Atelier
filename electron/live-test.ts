@@ -162,7 +162,9 @@ app.whenReady().then(async () => {
       const r = await checkUrl(target);
       // simple.ts swallows Layer-1 errors; a silent browser fallback is a failure here.
       if (apiBlocked.includes(brand) && r.source !== "api") {
-        console.log("  WARN: Layer 1 blocked from this IP, browser result used");
+        console.log(
+          "  WARN: Layer 1 blocked from this IP, browser result used",
+        );
       } else if (scraper?.hasApi) {
         assert.equal(
           r.source,
