@@ -53,10 +53,10 @@ const colored = page({
   variantTypes: [{ variantType: COLOR }, { variantType: SIZE }],
   selectedVariantValues: [{ id: "kirmizi" }],
   variants: [
-    variant("Siyah", "XS", 0),
-    variant("Siyah", "M", 0),
-    variant("Kırmızı", "XS", 3),
-    variant("Kırmızı", "M", 0),
+    variant("Siyah", "XS", 0, { id: "s-xs" }),
+    variant("Siyah", "M", 0, { id: "s-m" }),
+    variant("Kırmızı", "XS", 3, { id: "k-xs" }),
+    variant("Kırmızı", "M", 0, { id: "k-m" }),
   ],
 });
 const URL_ = "https://shop.example/tisort";
@@ -83,11 +83,24 @@ test("ikasProduct embeds every color and defaults to the page's selection", () =
   const r = ikasProduct(colored, URL_);
   assert.equal(r.colors[0], "Kırmızı");
   assert.equal(r.inStock, true);
-  assert.equal(r.colorVariants?.[0].url, `${URL_}?renk=kirmizi`);
-  assert.equal(r.colorVariants?.[1].url, `${URL_}?renk=siyah`);
   assert.equal(r.colorVariants?.[1].inStock, false);
   assert.equal(r.colorVariants?.[1].sizes?.length, 2);
   assert.match(r.colorVariants?.[1].imageUrl ?? "", /img-Siyah/);
+});
+
+test("ikasProduct's color URLs open that color on the store and in a re-check", () => {
+  const r = ikasProduct(colored, URL_);
+  // The store ignores ?renk= unless every variant type is in the URL; ?vid= always works.
+  assert.equal(r.colorVariants?.[0].url, `${URL_}?renk=kirmizi&vid=k-xs`);
+  assert.equal(r.colorVariants?.[1].url, `${URL_}?renk=siyah&vid=s-xs`);
+  for (const c of r.colorVariants ?? []) {
+    assert.equal(ikasProduct(colored, c.url ?? "").colors[0], c.color);
+  }
+  // A dead variant id must not move a tracked row to another color.
+  assert.equal(
+    ikasProduct(colored, `${URL_}?renk=siyah&vid=gone`).colors[0],
+    "Siyah",
+  );
 });
 
 test("ikasProduct matches a Turkish color however the URL spells it", () => {

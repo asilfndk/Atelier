@@ -127,7 +127,10 @@ export function ikasProduct(data: unknown, pageUrl: string): ProductStock {
       const rows = variants.filter((v) => colorOf(v) === c.name);
       return {
         color: c.name ?? "",
-        url: `${url.origin}${url.pathname}?${colorKey}=${slug(c.name ?? "")}`,
+        // The store applies ?renk= only with every variant type in the URL, so a
+        // color alone opens its default color; ?vid= opens it. Re-checks use ?renk=:
+        // it survives a deleted variant, and a missing color throws.
+        url: `${url.origin}${url.pathname}?${colorKey}=${slug(c.name ?? "")}&vid=${rows[0].id}`,
         price: lowestPrice(rows),
         inStock: rows.some(isInStock),
         imageUrl: imageOf(rows[0]),
