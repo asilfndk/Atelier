@@ -319,6 +319,7 @@ async function installUpdate(dmgPath: string): Promise<void> {
       mv "${target}" "${target}.bak" || exit 1
       if mv "${staging}" "${target}"; then
         rm -rf "${target}.bak"
+        rm -f "${app.getPath("temp")}"/Atelier-*.dmg
         echo "[swap] ok"
       else
         echo "[swap] failed — restoring previous version"

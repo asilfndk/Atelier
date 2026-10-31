@@ -6,6 +6,7 @@ on:
   schedule:
     - cron: "17 3 * * *"
   workflow_dispatch:
+  workflow_call:
   push:
     branches: ["**"]
     paths:
@@ -20,7 +21,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: live-${{ github.ref }}
+  # github.workflow keeps a release's call from replacing a queued nightly or push run.
+  group: live-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:

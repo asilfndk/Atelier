@@ -109,8 +109,8 @@ npm run dist:x64
 ### CI/CD
 
 - **CI** (`.github/workflows/ci.yml`): formatting, lint, types, unit tests, build and `npm audit` on every push to `main` and every PR.
-- **Release** (`.github/workflows/release.yml`): pushing a `vX.Y.Z` tag that matches `package.json` runs CI, builds and verifies both DMGs, then publishes the GitHub release the in-app updater reads. Run it manually for a dry run that only uploads artifacts.
-- **Live tests** (`.github/workflows/live.yml`): real-store scraper and scheduler checks, nightly and on pushes touching scrapers, the scheduler or the lockfile. Separate from CI so a store outage can't block unrelated work.
+- **Release** (`.github/workflows/release.yml`): pushing a `vX.Y.Z` tag that matches `package.json` runs CI and the live tests, builds and verifies both DMGs, then publishes the GitHub release the in-app updater reads. Run it manually for a dry run that only uploads artifacts.
+- **Live tests** (`.github/workflows/live.yml`): real-store scraper and scheduler checks, nightly and on pushes touching scrapers, the scheduler or the lockfile. Separate from CI so a store outage can't block everyday pushes; a release does wait for them.
 - **Dependabot** opens weekly PRs for npm packages and GitHub Actions.
 
 ### Adding a new store scraper

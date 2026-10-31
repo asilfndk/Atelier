@@ -13,8 +13,11 @@ jobs:
   ci:
     uses: ./.github/workflows/ci.yml
 
+  live:
+    uses: ./.github/workflows/live.yml
+
   package:
-    needs: ci
+    needs: [ci, live]
     runs-on: macos-latest
     timeout-minutes: 45
     permissions:
