@@ -38,9 +38,9 @@ jobs:
       # The updater trusts latest-mac.yml, and afterPack only verifies signatures.
       - name: Verify artifacts
         run: |
-          native=Contents/Resources/app.asar.unpacked/node_modules/better-sqlite3/build/Release/better_sqlite3.node
-          test "$(lipo -archs "release/mac-arm64/Atelier.app/$native")" = arm64
-          test "$(lipo -archs "release/mac/Atelier.app/$native")" = x86_64
+          native=Contents/Resources/app.asar.unpacked/node_modules/better-sqlite3/prebuilds
+          test "$(lipo -archs "release/mac-arm64/Atelier.app/$native/darwin-arm64.node")" = arm64
+          test "$(lipo -archs "release/mac/Atelier.app/$native/darwin-x64.node")" = x86_64
           version=$(node -p "require('./package.json').version")
           grep -qx "version: $version" release/latest-mac.yml
           test "$(grep -c 'url: .*\.dmg$' release/latest-mac.yml)" = 2

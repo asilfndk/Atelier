@@ -34,8 +34,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # scheduler-test opens the DB, so better-sqlite3 must match Electron's ABI.
-      - run: npm run rebuild
       - run: >
           npx esbuild electron/live-test.ts electron/scheduler-test.ts
           --bundle --platform=node --target=node20 --format=cjs --tsconfig=tsconfig.json
@@ -44,6 +42,6 @@ jobs:
       - if: ${{ !cancelled() }}
         run: npx electron dist-electron/live-test.js
         env:
-          # These stores refuse Layer-1 calls from GitHub's IPs (SneaksUp: HTTP 403)
-          # but serve the page, so only a local run can prove their APIs.
-          LIVE_API_BLOCKED: sneaksup,victoriassecret
+          # SneaksUp refuses Layer-1 calls from GitHub's IPs (HTTP 403) but serves
+          # the page, so only a local run can prove its API.
+          LIVE_API_BLOCKED: sneaksup

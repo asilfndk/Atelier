@@ -49,5 +49,5 @@ mac:
   # Unsigned personal distribution (requires no Apple Developer account)
   identity: null
 
-# Rebuild better-sqlite3 against the target Electron ABI
-npmRebuild: true
+# better-sqlite3 ships N-API prebuilds for both architectures; nothing to compile
+npmRebuild: false

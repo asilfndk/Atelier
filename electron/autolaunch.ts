@@ -4,10 +4,7 @@ import { app } from "electron";
 
 export function setAutoLaunch(enabled: boolean): void {
   try {
-    app.setLoginItemSettings({
-      openAtLogin: enabled,
-      openAsHidden: true, // start in the background (tray)
-    });
+    app.setLoginItemSettings({ openAtLogin: enabled });
   } catch (err) {
     // May be denied for an unsigned / translocated app — not critical.
     console.warn("[autolaunch] could not set login item:", err);
