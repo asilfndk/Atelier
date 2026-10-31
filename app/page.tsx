@@ -313,7 +313,7 @@ function EmptyState() {
         <h3 className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted">
           Supported stores
         </h3>
-        <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-hairline pt-3 text-sm text-ink-soft">
+        <ul className="mt-3 flex flex-wrap gap-x-2 gap-y-0.5 border-t border-hairline pt-3 font-mono text-[10px] uppercase tracking-[0.15em] text-muted">
           {Object.values(BRAND_LABELS).map((b) => (
             <li key={b}>{b}</li>
           ))}
