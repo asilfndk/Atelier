@@ -23,7 +23,7 @@ Atelier lives in the menu bar (it never shows in the Dock — `LSUIElement`), so
 
 ## Download
 
-Grab the latest `.dmg` from the [**Releases**](https://github.com/asilfndk/inditex-tracker/releases/latest) page:
+Grab the latest `.dmg` from the [**Releases**](https://github.com/asilfndk/Atelier/releases/latest) page:
 
 - **Apple Silicon (M1/M2/M3…):** `Atelier-<version>-arm64.dmg`
 - **Intel Macs:** `Atelier-<version>-x64.dmg`
