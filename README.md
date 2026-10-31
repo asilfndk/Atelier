@@ -6,10 +6,10 @@ Atelier lives in the menu bar (it never shows in the Dock — `LSUIElement`), so
 
 ## Supported stores
 
-|             |                                                                                                                                                                                                            |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Inditex** | Zara · Bershka · Stradivarius · Pull & Bear · Lefties · Oysho · Massimo Dutti                                                                                                                              |
-| **Others**  | Nike · Barçın · Mango · Sephora · SneaksUp · Sportinn · Tommy Hilfiger · Victoria's Secret · Boyner · Wunder · Superstep · Gratis · Watsons · Les Benjamins · Intersport · SPX · The North Face · Columbia |
+|             |                                                                                                                                                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Inditex** | Zara · Bershka · Stradivarius · Pull & Bear · Lefties · Oysho · Massimo Dutti                                                                                                                                                  |
+| **Others**  | Nike · Barçın · Mango · Sephora · SneaksUp · Sportinn · Tommy Hilfiger · Victoria's Secret · Boyner · Wunder · Superstep · Gratis · Watsons · Les Benjamins · Intersport · SPX · The North Face · Columbia · Konfuse · Bushido |
 
 ## Features
 

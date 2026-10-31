@@ -1,6 +1,8 @@
 import { akinonApi, type AkinonKeys } from "./akinon";
+import { fetchText, nextData } from "./base";
 import { boynerApi } from "./boyner";
 import { gratisApi } from "./gratis";
+import { ikasProduct } from "./ikas";
 import { lesbenjaminsApi } from "./lesbenjamins";
 import { nikeApi } from "./nike";
 import {
@@ -20,6 +22,7 @@ import {
   BOYNER_PAGE_SCRIPT,
   GENERIC_PAGE_SCRIPT,
   GRATIS_PAGE_SCRIPT,
+  IKAS_PAGE_SCRIPT,
   LEFTIES_PAGE_SCRIPT,
   makeAkinonScript,
   MANGO_PAGE_SCRIPT,
@@ -36,7 +39,7 @@ import {
   WUNDER_PAGE_SCRIPT,
   ZARA_PAGE_SCRIPT,
 } from "./page-script";
-import type { ScrapeResult } from "./types";
+import type { ParsedProduct, ScrapeResult } from "./types";
 
 // Only the p-code is a product for Zara/Bershka (l-codes are listings);
 // the newer platforms use l/p interchangeably.
@@ -72,6 +75,17 @@ function urunCodeParse(u: URL): { productId: string } | null {
       : parts[parts.length - 1]) ?? "";
   return productId ? { productId } : null;
 }
+
+const IKAS = {
+  script: IKAS_PAGE_SCRIPT,
+  ready: "!!document.getElementById('__NEXT_DATA__')",
+  parse: lastSegmentParse,
+  api: async (p: ParsedProduct) =>
+    ikasProduct(
+      nextData(await fetchText(p.url, 8000, { Accept: "text/html" })),
+      p.url,
+    ),
+};
 
 const scrapers: Scraper[] = [
   makeScraper({
@@ -281,6 +295,8 @@ const scrapers: Scraper[] = [
     parse: lastSegmentParse,
     api: sneaksupApi,
   }),
+  makeScraper({ brand: "konfuse", hostname: "konfuse.shop", ...IKAS }),
+  makeScraper({ brand: "bushido", hostname: "bushido-shop.com", ...IKAS }),
   makeScraper({
     brand: "watsons",
     hostname: "watsons.com.tr",

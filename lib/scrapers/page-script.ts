@@ -1,4 +1,5 @@
 import type { AkinonKeys } from "./akinon";
+import { ikasProduct } from "./ikas";
 
 /**
  * Zara-specific: name/price/image from JSON-LD + open the "ADD" panel and read
@@ -1737,6 +1738,12 @@ export const makeAkinonScript = (keys: AkinonKeys) => `
     inStock: sizes.length ? sizes.some(s => s.inStock) : selectedOption?.in_stock === true,
     ...(colorVariants.length ? { colorVariants } : {})
   };
+`;
+
+/** ikas stores: Layer 1's own parser, serialized, so the layers can't drift. */
+export const IKAS_PAGE_SCRIPT = `
+  const data = JSON.parse(document.getElementById('__NEXT_DATA__')?.textContent || 'null');
+  return (${ikasProduct})(data, location.href);
 `;
 
 /** The North Face (GrandNode): the page's own globals. Must stay in step with thenorthfaceApi. */

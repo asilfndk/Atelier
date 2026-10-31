@@ -41,6 +41,8 @@ const PARITY = new Set<string>([
   "spx",
   "thenorthface",
   "columbia",
+  "konfuse",
+  "bushido",
 ]);
 
 // Brand listing/category pages — real product links are discovered from these.
@@ -58,6 +60,12 @@ const LISTINGS = [
   "https://www.thenorthface.com.tr/erkek-explore-camp-sandalet-nf0a8a8xkx71",
   // Columbia — multi-color (SneaksUp's storefront).
   "https://www.columbia.com.tr/mhw-yesili-csc-nature-and-back-erkek-sweatshirt-p-41442",
+  // Konfuse (ikas) — sizes only, the second with sold-out sizes.
+  "https://konfuse.shop/the-hunt-1",
+  "https://konfuse.shop/the-steppe-washed",
+  // Bushido (ikas) — a color in the query string (the server ignores it) + sizes only.
+  "https://bushido-shop.com/the-kipchak-1?renk=siyah&beden=xs",
+  "https://bushido-shop.com/the-data-prophet-1",
 
   "https://www.zara.com/us/en/woman-dresses-l1066.html",
   // Bershka — direct product URL (listing pages expose no product links).
