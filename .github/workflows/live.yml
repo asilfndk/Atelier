@@ -47,5 +47,6 @@ jobs:
           # SneaksUp refuses Layer-1 calls from GitHub's IPs (HTTP 403) but serves
           # the page, so only a local run can prove its API.
           LIVE_API_BLOCKED: sneaksup
-          # The North Face refuses the page too (HTTP 405), so only a local run proves it.
-          LIVE_SITE_BLOCKED: thenorthface
+          # The North Face (HTTP 405) and Bushido (Cloudflare, HTTP 403) refuse the page
+          # too, so only a local run proves them.
+          LIVE_SITE_BLOCKED: thenorthface,bushido
