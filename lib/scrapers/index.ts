@@ -1,4 +1,4 @@
-import { barcinApi } from "./barcin";
+import { akinonApi, type AkinonKeys } from "./akinon";
 import { boynerApi } from "./boyner";
 import { gratisApi } from "./gratis";
 import { lesbenjaminsApi } from "./lesbenjamins";
@@ -11,16 +11,17 @@ import {
 } from "./simple";
 import { sneaksupApi } from "./sneaksup";
 import { superstepApi } from "./superstep";
+import { thenorthfaceApi } from "./thenorthface";
 import { tommyApi } from "./tommy";
 import { victoriassecretApi } from "./victoriassecret";
 import { wunderApi } from "./wunder";
 import {
-  BARCIN_PAGE_SCRIPT,
   BERSHKA_PAGE_SCRIPT,
   BOYNER_PAGE_SCRIPT,
   GENERIC_PAGE_SCRIPT,
   GRATIS_PAGE_SCRIPT,
   LEFTIES_PAGE_SCRIPT,
+  makeAkinonScript,
   MANGO_PAGE_SCRIPT,
   MASSIMODUTTI_PAGE_SCRIPT,
   NIKE_PAGE_SCRIPT,
@@ -30,6 +31,7 @@ import {
   SNEAKSUP_PAGE_SCRIPT,
   SPORTINN_PAGE_SCRIPT,
   STRADIVARIUS_PAGE_SCRIPT,
+  THENORTHFACE_PAGE_SCRIPT,
   VICTORIASSECRET_PAGE_SCRIPT,
   WUNDER_PAGE_SCRIPT,
   ZARA_PAGE_SCRIPT,
@@ -40,6 +42,36 @@ import type { ScrapeResult } from "./types";
 // the newer platforms use l/p interchangeably.
 const P_CODE = /p(\d+)(?:\.html)?$/i;
 const LP_CODE = /[lp](\d+)(?:\.html)?$/i;
+
+// Each Akinon store names its variant attributes differently.
+const BARCIN: AkinonKeys = {
+  color: "integration_color_hash",
+  size: "integration_size",
+};
+const INTERSPORT: AkinonKeys = {
+  color: "integration_renk",
+  size: "integration_beden",
+  colorName: "integration_renk_tonu",
+  // The option label is the US shoe size ("9,5"); the pages show the TR one ("43").
+  sizeName: "filterable_size",
+};
+const SPX: AkinonKeys = {
+  color: "integration_color_code",
+  size: "integration_first_size",
+  colorName: "filterable_color",
+  sizeName: "filterable_size",
+};
+
+/** /urun/<slug>/<code>/ → product code (e.g. ki6678); otherwise the last segment. */
+function urunCodeParse(u: URL): { productId: string } | null {
+  const parts = u.pathname.split("/").filter(Boolean);
+  const idx = parts.indexOf("urun");
+  const productId =
+    (idx >= 0 && parts.length > idx + 2
+      ? parts[idx + 2]
+      : parts[parts.length - 1]) ?? "";
+  return productId ? { productId } : null;
+}
 
 const scrapers: Scraper[] = [
   makeScraper({
@@ -148,16 +180,7 @@ const scrapers: Scraper[] = [
     brand: "superstep",
     hostname: "superstep.com.tr",
     script: GENERIC_PAGE_SCRIPT,
-    // /urun/<slug>/<code>/ → product code (e.g. ki6678); otherwise the last segment.
-    parse: (u) => {
-      const parts = u.pathname.split("/").filter(Boolean);
-      const idx = parts.indexOf("urun");
-      const productId =
-        (idx >= 0 && parts.length > idx + 2
-          ? parts[idx + 2]
-          : parts[parts.length - 1]) ?? "";
-      return productId ? { productId } : null;
-    },
+    parse: urunCodeParse,
     api: superstepApi,
   }),
   makeScraper({
@@ -223,9 +246,40 @@ const scrapers: Scraper[] = [
     brand: "barcin",
     hostname: "barcin.com",
     // Color-aware Layer 2: a color-blind scrape would record the default color's stock.
-    script: BARCIN_PAGE_SCRIPT,
+    script: makeAkinonScript(BARCIN),
     parse: lastSegmentParse,
-    api: barcinApi,
+    api: (p) => akinonApi(p, BARCIN),
+  }),
+  makeScraper({
+    brand: "intersport",
+    hostname: "intersport.com.tr",
+    script: makeAkinonScript(INTERSPORT),
+    parse: urunCodeParse,
+    api: (p) => akinonApi(p, INTERSPORT),
+  }),
+  makeScraper({
+    brand: "spx",
+    hostname: "spx.com.tr",
+    script: makeAkinonScript(SPX),
+    parse: lastSegmentParse,
+    api: (p) => akinonApi(p, SPX),
+  }),
+  makeScraper({
+    brand: "thenorthface",
+    hostname: "thenorthface.com.tr",
+    script: THENORTHFACE_PAGE_SCRIPT,
+    ready: "!!window.insider_object?.product",
+    parse: lastSegmentParse,
+    api: thenorthfaceApi,
+  }),
+  makeScraper({
+    brand: "columbia",
+    hostname: "columbia.com.tr",
+    // Same storefront as SneaksUp, without its JSON-LD.
+    script: SNEAKSUP_PAGE_SCRIPT,
+    ready: "!!document.getElementById('__NEXT_DATA__')",
+    parse: lastSegmentParse,
+    api: sneaksupApi,
   }),
   makeScraper({
     brand: "watsons",

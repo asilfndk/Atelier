@@ -1,3 +1,5 @@
+import type { AkinonKeys } from "./akinon";
+
 /**
  * Zara-specific: name/price/image from JSON-LD + open the "ADD" panel and read
  * clean size labels (XS/S/M/L) and stock status (`data-qa-action`) from the
@@ -974,9 +976,14 @@ export const GENERIC_PAGE_SCRIPT =
  * (`.add-to-cart__size-btn`, disabled when out of stock).
  */
 const SNEAKSUP_SIZE_BLOCK = `
+  let p = null;
   try {
     const nd = JSON.parse((document.getElementById('__NEXT_DATA__') || {}).textContent || 'null');
-    const p = nd && nd.props && nd.props.pageProps && nd.props.pageProps.product;
+    p = nd && nd.props && nd.props.pageProps && nd.props.pageProps.product;
+    // Columbia has no JSON-LD; same fields as Layer 1.
+    if (p && p.productName) out.name = p.productName;
+    const photo = p && Array.isArray(p.pictures) && p.pictures.find((x) => x.mediaType === 1);
+    if (photo && photo.url) out.imageUrl = photo.url;
     if (p && Array.isArray(p.variants) && p.variants.length) {
       out.sizes = p.variants
         .filter((v) => v && v.specValueName)
@@ -1027,6 +1034,8 @@ const SNEAKSUP_SIZE_BLOCK = `
     });
     if (out.sizes.length) out.inStock = out.sizes.some((s) => s.inStock);
   }
+  // No product at all is a failed load, not "sold out".
+  if (!p && !out.sizes.length) throw new Error('Product data is missing');
 `;
 
 export const SNEAKSUP_PAGE_SCRIPT =
@@ -1676,40 +1685,91 @@ export const NIKE_PAGE_SCRIPT = `
   };
 `;
 
-/** Barçın (Akinon): the public JSON representation preserves the requested color. */
-export const BARCIN_PAGE_SCRIPT = `
+/** Akinon stores: the public JSON preserves the requested color. Must stay in step with akinonApi. */
+export const makeAkinonScript = (keys: AkinonKeys) => `
+  const keys = ${JSON.stringify(keys)};
   const endpoint = new URL(location.href);
   endpoint.searchParams.set('format', 'json');
   const response = await fetch(endpoint.href, { signal: AbortSignal.timeout(15000) });
-  if (!response.ok) throw new Error('Barçın product request failed: ' + response.status);
+  if (!response.ok) throw new Error('Akinon product request failed: ' + response.status);
   const data = await response.json();
-  if (!data.product?.name || !Array.isArray(data.variants)) throw new Error('Barçın product data is missing');
-  const colorOptions = data.variants.find(v => v.attribute_key === 'integration_color_hash')?.options || [];
-  const selectedColor = endpoint.searchParams.get('integration_color_hash') || data.product.attributes?.integration_color_hash;
+  if (!data.product?.name || !Array.isArray(data.variants)) throw new Error('Akinon product data is missing');
+  const colorOptions = data.variants.find(v => v.attribute_key === keys.color)?.options || [];
+  const selectedColor = endpoint.searchParams.get(keys.color) || data.product.attributes?.[keys.color];
   const selectedOption = colorOptions.find(color => color.value === selectedColor);
-  if (selectedColor && colorOptions.length && !selectedOption) throw new Error('Barçın requested color is missing');
+  if (selectedColor && colorOptions.length && !selectedOption) throw new Error('Akinon requested color is missing');
   const product = selectedOption?.product || data.product;
-  const sizeOptions = data.variants.find(v => v.attribute_key === 'integration_size')?.options;
-  if (!Array.isArray(sizeOptions) || !sizeOptions.length) throw new Error('Barçın size availability is missing');
+  const sizeOptions = data.variants.find(v => v.attribute_key === keys.size)?.options || [];
   // Akinon can fall back to another color for sold-out sizes; never report that color's stock.
-  const sizes = sizeOptions.filter(size => !selectedColor || size.product?.attributes?.integration_color_hash === selectedColor).map(size => ({
-    label: size.label, inStock: size.in_stock === true, price: Number(size.product?.price) || null
+  const ownSizes = sizeOptions.filter(size => !selectedColor || size.product?.attributes?.[keys.color] === selectedColor);
+  // A fully sold-out color has only other colors' rows: keep them as sold-out
+  // labels, so its restock is noticed. Otherwise no rows is a partial payload.
+  const soldOut = !ownSizes.length && selectedOption?.in_stock === false;
+  if (sizeOptions.length ? !ownSizes.length && !soldOut : !selectedOption) throw new Error('Akinon size availability is missing');
+  const rows = soldOut ? sizeOptions : ownSizes;
+  // Intersport lists a placeholder row next to the real sizes; its page hides it.
+  const sizes = rows.filter(size => rows.length < 2 || size.label !== 'Standart').map(size => ({
+    label: (keys.sizeName && size.product?.attributes?.[keys.sizeName]) || size.label || '',
+    inStock: !soldOut && size.in_stock === true, price: soldOut ? null : Number(size.product?.price) || null
   }));
-  if (!sizes.length) throw new Error('Barçın size availability is missing');
   const price = Number(product.price) || null;
   const imageUrl = product.productimage_set?.[0]?.image || null;
+  // Colorways can share a name: add the code, which is the same on every color's page.
+  const colorName = color => (keys.colorName && color.product?.attributes?.[keys.colorName]) || color.label || '';
+  const colorLabel = color => colorOptions.filter(o => colorName(o) === colorName(color)).length > 1
+    ? colorName(color) + ' (' + color.value + ')' : colorName(color);
   // Put the requested color first; canonical product paths may differ from the incoming slug.
   colorOptions.sort((a, b) => Number(b.value === selectedColor) - Number(a.value === selectedColor));
   const colorVariants = colorOptions.map(color => {
     const url = new URL(color.product?.absolute_url || '', location.origin);
-    url.searchParams.set('integration_color_hash', color.value);
+    url.searchParams.set(keys.color, color.value);
     return {
-      color: color.label, url: url.href, price: Number(color.product?.price) || null, inStock: color.in_stock === true,
+      color: colorLabel(color), url: url.href, price: Number(color.product?.price) || null,
+      // With sizes, the flag is one SKU's: false doesn't mean the color is sold out.
+      ...(color.in_stock === true || !sizeOptions.length ? { inStock: color.in_stock === true } : {}),
       ...(color.value === selectedColor ? { imageUrl, sizes } : {})
     };
   });
   return {
     name: product.name, price, currency: product.currency_type?.toUpperCase() || 'TRY', imageUrl,
-    colors: colorVariants.map(v => v.color), colorVariants, sizes, inStock: sizes.some(s => s.inStock)
+    colors: colorVariants.map(v => v.color), sizes,
+    // Sizeless items (sunglasses, bags) carry stock on the color's only SKU.
+    inStock: sizes.length ? sizes.some(s => s.inStock) : selectedOption?.in_stock === true,
+    ...(colorVariants.length ? { colorVariants } : {})
+  };
+`;
+
+/** The North Face (GrandNode): the page's own globals. Must stay in step with thenorthfaceApi. */
+export const THENORTHFACE_PAGE_SCRIPT = `
+  const p = window.insider_object?.product;
+  if (!p?.name) throw new Error('The North Face product data is missing');
+  const attributes = standardProductAttributes.ProductAttributes || [];
+  const sizes = (attributes.find(a => a.Name === 'Beden')?.Values || []).map(v => ({
+    label: String(v.Name ?? '').trim(),
+    inStock: v.StockAvailability === 'Stokta var'
+  }));
+  const price = p.unit_sale_price ?? null;
+  const imageUrl = p.product_image_url || null;
+  const inStock = sizes.length ? sizes.some(s => s.inStock) : Number(p.stock) > 0;
+  // Only assigned when the page's compare widget exists; the inline JSON is always there.
+  const siblingsJson = document.documentElement.innerHTML.match(/compare\\.mainProduct\\.MergeProductByMpn = (\\[.*\\]);\\s*$/m)?.[1];
+  const siblings = siblingsJson ? JSON.parse(siblingsJson) : [];
+  const code = sku => String(sku ?? '').slice(String(siblings[0]?.Mpn ?? '').length);
+  const siblingName = s => (s.SpecificationAttributeModels?.find(a => a.SpecificationAttributeName === 'Renk')?.ValueRaw ?? '')
+    .replace(/&#(\\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
+  const names = [p.color ?? '', ...siblings.map(siblingName)];
+  const label = (name, sku) => !name || names.filter(n => n === name).length > 1
+    ? [name, code(sku)].filter(Boolean).join(' ') : name;
+  const colorVariants = siblings.length ? [
+    { color: label(p.color ?? '', p.id), url: location.href, price, inStock, imageUrl, sizes },
+    ...siblings.map(s => ({
+      color: label(siblingName(s), s.Sku), url: s.Url,
+      price: s.ProductPrice?.PriceValue ?? null, inStock: s.StockAvailability === true
+    }))
+  ] : [];
+  return {
+    name: p.name, price, currency: p.currency || 'TRY', imageUrl,
+    colors: colorVariants.map(v => v.color), sizes, inStock,
+    ...(colorVariants.length ? { colorVariants } : {})
   };
 `;

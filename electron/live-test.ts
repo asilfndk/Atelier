@@ -37,6 +37,10 @@ const PARITY = new Set<string>([
   "nike",
   "barcin",
   "tommy",
+  "intersport",
+  "spx",
+  "thenorthface",
+  "columbia",
 ]);
 
 // Brand listing/category pages — real product links are discovered from these.
@@ -45,6 +49,15 @@ const LISTINGS = [
   "https://www.nike.com/tr/t/hybrid-rn-erkek-antrenman-ayakkabisi-pxCEblh5/IV5066-600",
   "https://www.nike.com/tr/t/jordan-brooklyn-chore-erkek-ceketi-LOwsuQb8/IM8989-010",
   "https://www.barcin.com/nike-jordan-flt-wings-fleece-erkek-sweatshirt-siyah-siyah-beyaz/?integration_color_hash=Siyah-Siyah-Kırmızı",
+
+  // Intersport — TR shoe sizes (the Akinon label is the US size).
+  "https://www.intersport.com.tr/urun/nike-initiator-erkek-siyah-gunluk-spor-ayakkabi/ib4595-001/",
+  // SPX — sold-out sizes + a color/size in the query string.
+  "https://www.spx.com.tr/salomon-aero-blaze-4-grvl-gtx-erkek-siyah-gravel-kosu-ayakkabisi-mavi-l45403000-bbp0/?integration_color_code=BBP0&integration_first_size=8",
+  // The North Face — sold-out sizes + a sibling color on sale.
+  "https://www.thenorthface.com.tr/erkek-explore-camp-sandalet-nf0a8a8xkx71",
+  // Columbia — multi-color (SneaksUp's storefront).
+  "https://www.columbia.com.tr/mhw-yesili-csc-nature-and-back-erkek-sweatshirt-p-41442",
 
   "https://www.zara.com/us/en/woman-dresses-l1066.html",
   // Bershka — direct product URL (listing pages expose no product links).
@@ -179,6 +192,10 @@ app.whenReady().then(async () => {
         assert.deepEqual(sizes(r.sizes), sizes(b.sizes));
         assert.equal(r.price, b.price);
         assert.deepEqual(r.colors, b.colors);
+        if (brand === "columbia") {
+          assert.equal(r.name, b.name);
+          assert.equal(r.imageUrl, b.imageUrl);
+        }
         console.log("  PASS: layer parity");
       }
       if (brand === "nike" || brand === "barcin") {

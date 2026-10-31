@@ -26,7 +26,7 @@ interface SuperstepDetail {
 /**
  * Superstep (Akinon): https://www.superstep.com.tr/urun/<slug>/<code>/
  *
- * Layer 1 is Akinon's public `?format=json` (as in barcin.ts). Sizes come from
+ * Layer 1 is Akinon's public `?format=json` (as in akinon.ts). Sizes come from
  * `integration_beden` (marketplace items: `mp_size`); Akinon fills sold-out
  * sizes with other colors' options, so only the page's own color is kept.
  * Each color is its own product here, so `colors` stays empty. Layer 2

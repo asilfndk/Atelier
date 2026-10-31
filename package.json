@@ -1,8 +1,8 @@
 {
   "name": "inditex-tracker",
-  "version": "0.13.4",
+  "version": "0.14.0",
   "private": true,
-  "description": "Stock & price tracking app for Zara, Bershka, Stradivarius, Pull & Bear, Lefties, Mango, Sephora, SneaksUp, Tommy Hilfiger, Victoria's Secret, Boyner, Wunder, Superstep, Gratis, Watsons, Nike and Barçın",
+  "description": "Stock & price tracking app for Zara, Bershka, Stradivarius, Pull & Bear, Lefties, Mango, Sephora, SneaksUp, Tommy Hilfiger, Victoria's Secret, Boyner, Wunder, Superstep, Gratis, Watsons, Nike, Barçın, Intersport, SPX, The North Face and Columbia",
   "author": "Atelier",
   "productName": "Atelier",
   "main": "dist-electron/main.js",

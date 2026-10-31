@@ -22,6 +22,10 @@ export const BRAND_LABELS: Record<Brand, string> = {
   sportinn: "Sportinn",
   nike: "Nike",
   barcin: "Barçın",
+  intersport: "Intersport",
+  spx: "SPX",
+  thenorthface: "The North Face",
+  columbia: "Columbia",
 };
 
 export function formatPrice(

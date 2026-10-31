@@ -90,6 +90,8 @@ export function ProductResult({
     {},
   );
   const [variantLoading, setVariantLoading] = useState(false);
+  // The color whose lazy fetch failed: its stock is unknown, so it can't be tracked.
+  const [failedColor, setFailedColor] = useState<string | null>(null);
   // Keep a late-returning fetch from wrongly hiding the spinner on rapid color changes.
   const variantToken = useRef(0);
 
@@ -98,12 +100,18 @@ export function ProductResult({
   const variant =
     (color && result.colorVariants?.find((v) => v.color === color)) || null;
   const fetched = (color && variantData[color]) || null;
-  const activeSizes = fetched?.sizes?.length
-    ? fetched.sizes
-    : variant?.sizes?.length
-      ? variant.sizes
-      : result.sizes;
-  const activeImage = fetched?.imageUrl ?? variant?.imageUrl ?? result.imageUrl;
+  const colorFailed = color !== null && failedColor === color;
+  // A failed color shows no photo or sizes: the fallback would be another color's.
+  const activeSizes = colorFailed
+    ? []
+    : fetched?.sizes?.length
+      ? fetched.sizes
+      : variant?.sizes?.length
+        ? variant.sizes
+        : result.sizes;
+  const activeImage = colorFailed
+    ? null
+    : (fetched?.imageUrl ?? variant?.imageUrl ?? result.imageUrl);
   const activeInStock = fetched
     ? fetched.inStock
     : variant?.sizes?.length
@@ -123,6 +131,7 @@ export function ProductResult({
 
   function selectColor(c: string | null) {
     setColor(c);
+    setFailedColor(null);
     // Drop the selection if the new color's size list lacks the selected size.
     const next =
       (c && result.colorVariants?.find((v) => v.color === c)) || null;
@@ -140,7 +149,8 @@ export function ProductResult({
           setVariantData((m) => ({ ...m, [c]: res }));
         })
         .catch(() => {
-          // Fetch failed: keep showing the product-wide data.
+          // A late failure of a color the user has left must not lock the current one.
+          if (variantToken.current === token) setFailedColor(c);
         })
         .finally(() => {
           if (variantToken.current === token) setVariantLoading(false);
@@ -218,10 +228,18 @@ export function ProductResult({
           <span
             className={cn(
               "inline-flex h-1.5 w-1.5 rounded-full",
-              activeInStock ? "bg-in-stock" : "bg-signal",
+              colorFailed
+                ? "bg-muted"
+                : activeInStock
+                  ? "bg-in-stock"
+                  : "bg-signal",
             )}
           />
-          {activeInStock ? "In stock" : "Sold out"}
+          {colorFailed
+            ? "Stock unknown"
+            : activeInStock
+              ? "In stock"
+              : "Sold out"}
           <span className="text-hairline">·</span>
           <span>
             {result.source === "api"
@@ -276,6 +294,18 @@ export function ProductResult({
                 </button>
               ))}
             </div>
+            {colorFailed && (
+              <p role="alert" className="mt-2 text-xs text-ink-soft">
+                This color couldn&apos;t be loaded, so it can&apos;t be added.{" "}
+                <button
+                  type="button"
+                  onClick={() => selectColor(color)}
+                  className="no-drag font-medium text-ink underline"
+                >
+                  Try again
+                </button>
+              </p>
+            )}
           </div>
         )}
 
@@ -325,7 +355,11 @@ export function ProductResult({
             type="button"
             onClick={track}
             disabled={
-              alreadyTracked || tracking || (!notifyStock && !notifyPrice)
+              alreadyTracked ||
+              tracking ||
+              variantLoading ||
+              colorFailed ||
+              (!notifyStock && !notifyPrice)
             }
             className={cn(
               "no-drag flex h-10 items-center gap-2 px-5 text-sm font-medium transition-all",
