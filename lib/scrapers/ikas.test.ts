@@ -221,6 +221,107 @@ test("ikasProduct joins extra dimensions and handles variantless products", () =
   assert.equal(oversold.inStock, true);
 });
 
+const FABRIC = {
+  id: "f",
+  name: "Kumaş Tipi",
+  selectionType: "COLOR",
+  values: [
+    { id: "ince", name: "Pamuklu İnce" },
+    { id: "kalin", name: "HQ Kalın" },
+  ],
+};
+const fabricRow = (fabric: string, size: string, stock: number) =>
+  variant(null, null, stock, {
+    variantValues: [
+      { name: fabric, variantTypeId: "f" },
+      { name: size, variantTypeId: "s" },
+    ],
+  });
+const groupItem = (id: string, value: string, hasStock = true) => ({
+  productId: id,
+  href: `/tisort-${id}`,
+  image: { id: `swatch-${id}`, isVideo: false },
+  groupValues: [{ name: "Renk", value }],
+  hasStock,
+});
+
+test("ikasProduct keeps a swatch type that isn't a color in the size label", () => {
+  const r = ikasProduct(
+    page({
+      variantTypes: [{ variantType: FABRIC }, { variantType: SIZE }],
+      selectedVariantValues: [{ id: "ince" }],
+      variants: [
+        fabricRow("Pamuklu İnce", "XS", 1),
+        fabricRow("HQ Kalın", "XS", 0),
+      ],
+    }),
+    `${URL_}?kumas-tipi=hq-kalin&beden=xs`,
+  );
+  assert.deepEqual(r.colors, []);
+  assert.equal(r.colorVariants, undefined);
+  assert.deepEqual(
+    r.sizes.map((s) => [s.label, s.inStock]),
+    [
+      ["Pamuklu İnce · XS", true],
+      ["HQ Kalın · XS", false],
+    ],
+  );
+  assert.equal(r.inStock, true);
+});
+
+test("ikasProduct offers the colors sold as sibling products", () => {
+  const r = ikasProduct(
+    page({
+      id: "beyaz",
+      variantTypes: [{ variantType: FABRIC }, { variantType: SIZE }],
+      productGroupItems: [
+        groupItem("siyah", "SİYAH", false),
+        groupItem("beyaz", "BEYAZ"),
+      ],
+      variants: [fabricRow("Pamuklu İnce", "XS", 1)],
+    }),
+    `${URL_}?kumas-tipi=hq-kalin&beden=xs`,
+  );
+  // This page's color first, with its own data.
+  assert.deepEqual(r.colors, ["BEYAZ", "SİYAH"]);
+  const [own, sibling] = r.colorVariants ?? [];
+  assert.equal(own.url, "https://shop.example/tisort-beyaz");
+  assert.equal(own.sizes?.[0].label, "Pamuklu İnce · XS");
+  assert.match(own.imageUrl ?? "", /image_1080/);
+  // A sibling's sizes live on its own page: no imageUrl, so the UI fetches them.
+  assert.deepEqual(sibling, {
+    color: "SİYAH",
+    url: "https://shop.example/tisort-siyah",
+    inStock: false,
+  });
+});
+
+test("ikasProduct's sibling colors stay on the store's host and yield to variant colors", () => {
+  const product = (extra: object) =>
+    ikasProduct(
+      page({
+        id: "beyaz",
+        variantTypes: [{ variantType: SIZE }],
+        variants: [variant(null, "XS", 1)],
+        ...extra,
+      }),
+      URL_,
+    );
+  const bad = { ...groupItem("kotu", "KÖTÜ"), href: "@evil.example/x" };
+  assert.deepEqual(
+    product({ productGroupItems: [groupItem("beyaz", "BEYAZ"), bad] }).colors,
+    ["BEYAZ"],
+  );
+  assert.deepEqual(
+    product({
+      variantTypes: [{ variantType: COLOR }, { variantType: SIZE }],
+      variants: [variant("Siyah", "XS", 1)],
+      productGroupItems: [groupItem("beyaz", "BEYAZ")],
+    }).colors,
+    ["Siyah"],
+  );
+});
+
 test("ikasProduct rejects anything but a product page", () => {
   assert.throws(() => ikasProduct(null, URL_), /product data is missing/);
   assert.throws(

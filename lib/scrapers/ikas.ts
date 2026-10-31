@@ -28,10 +28,17 @@ interface IkasNextData {
       pageType?: string;
       configJson?: { merchantSettings?: { merchantId?: string } };
       pageSpecificData?: {
+        id?: string;
         name?: string;
         variantTypes?: { variantType?: IkasVariantType }[];
         selectedVariantValues?: { id?: string }[];
         variants?: IkasVariant[];
+        productGroupItems?: {
+          productId?: string;
+          href?: string;
+          groupValues?: { value?: string }[];
+          hasStock?: boolean;
+        }[];
       };
     };
   };
@@ -41,7 +48,10 @@ interface IkasNextData {
  * ikas stores (Konfuse, Bushido): https://<store>/<slug>?renk=<color>
  *
  * Reads the server-rendered `__NEXT_DATA__`: one row per color × size, so every
- * color's sizes, photo and price are embedded. The server ignores `?renk=` and
+ * color's sizes, photo and price are embedded. Some products sell each color as
+ * its own product instead (`productGroupItems`, /the-kelaynak-beyaz vs
+ * /the-kelaynak-siyah); those colors are fetched from their own page. Any other
+ * variant type, such as "Kumaş Tipi", goes into the size label. The server ignores `?renk=` and
  * `?vid=<variant>` (the page applies them in the client), hence the color comes
  * from the URL here too. Layer 2 runs this same function in the page (IKAS_PAGE_SCRIPT), so it must
  * stay self-contained: no references outside its own body.
@@ -80,10 +90,13 @@ export function ikasProduct(data: unknown, pageUrl: string): ProductStock {
       : null;
   };
 
-  // Not always named "Renk" ("Şort Rengi", "Cüzdan Renk"): the type says what it is.
+  // Not always named "Renk" ("Şort Rengi", "Cüzdan Renk"), and the swatch type
+  // alone doesn't make a color: "Kumaş Tipi" and "Gemstone" have swatches too.
   const colorType = product.variantTypes
     ?.map((t) => t.variantType)
-    .find((t) => t?.selectionType === "COLOR");
+    .find(
+      (t) => t?.selectionType === "COLOR" && /ren[kg]/.test(slug(t.name ?? "")),
+    );
   const colorOf = (v: IkasVariant) =>
     colorType &&
     v.variantValues?.find((x) => x.variantTypeId === colorType.id)?.name;
@@ -137,6 +150,34 @@ export function ikasProduct(data: unknown, pageUrl: string): ProductStock {
         sizes: toSizes(rows),
       };
     });
+
+  // Colors sold as sibling products. Only this page's data is known: a sibling
+  // has no imageUrl, so the UI fetches its photo, sizes and price from its url.
+  if (!colorType) {
+    const siblings = (product.productGroupItems ?? []).flatMap(
+      (item): ColorVariant[] => {
+        const color = item.groupValues?.[0]?.value;
+        if (!color || !item.href?.startsWith("/")) return [];
+        const itemUrl = `${url.origin}${item.href}`;
+        return item.productId === product.id
+          ? [
+              {
+                color,
+                url: itemUrl,
+                price: lowestPrice(variants),
+                inStock: variants.some(isInStock),
+                imageUrl: imageOf(variants[0]),
+                sizes: toSizes(variants),
+              },
+            ]
+          : [{ color, url: itemUrl, inStock: item.hasStock === true }];
+      },
+    );
+    colorVariants.push(
+      ...siblings.filter((c) => c.sizes),
+      ...siblings.filter((c) => !c.sizes),
+    );
+  }
 
   const active = selected
     ? variants.filter((v) => colorOf(v) === selected.name)

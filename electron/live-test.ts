@@ -63,6 +63,10 @@ const LISTINGS = [
   // Konfuse (ikas) — sizes only, the second with sold-out sizes.
   "https://konfuse.shop/the-hunt-1",
   "https://konfuse.shop/the-steppe-washed",
+  // Konfuse — colors as sibling products + a fabric type; fabric only; colors only.
+  "https://konfuse.shop/the-kelaynak-beyaz?kumas-tipi=hq-kalin&beden=xs",
+  "https://konfuse.shop/the-kilim",
+  "https://konfuse.shop/the-basic-gri-spreyli-t-shirt",
   // Bushido (ikas) — a color in the query string (the server ignores it) + sizes only.
   "https://bushido-shop.com/the-kipchak-1?renk=siyah&beden=xs",
   "https://bushido-shop.com/the-data-prophet-1",

@@ -109,6 +109,8 @@ export function ProductResult({
       : variant?.sizes?.length
         ? variant.sizes
         : result.sizes;
+  // A color sold as its own product has its own name ("… SİYAH").
+  const activeName = fetched?.name ?? result.name;
   const activeImage = colorFailed
     ? null
     : (fetched?.imageUrl ?? variant?.imageUrl ?? result.imageUrl);
@@ -135,7 +137,12 @@ export function ProductResult({
     // Drop the selection if the new color's size list lacks the selected size.
     const next =
       (c && result.colorVariants?.find((v) => v.color === c)) || null;
-    const sizesFor = next?.sizes?.length ? next.sizes : result.sizes;
+    const known = c ? variantData[c]?.sizes : null;
+    const sizesFor = known?.length
+      ? known
+      : next?.sizes?.length
+        ? next.sizes
+        : result.sizes;
     if (size && !sizesFor.some((s) => s.label === size)) setSize(null);
 
     // Lazy variant fetch: if the variant has a URL but no image (Gratis), the
@@ -147,6 +154,12 @@ export function ProductResult({
         .checkUrl(next.url)
         .then((res) => {
           setVariantData((m) => ({ ...m, [c]: res }));
+          // A size picked before the list arrived may not exist in this color.
+          if (variantToken.current === token && res.sizes.length) {
+            setSize((s) =>
+              s && res.sizes.some((x) => x.label === s) ? s : null,
+            );
+          }
         })
         .catch(() => {
           // A late failure of a color the user has left must not lock the current one.
@@ -195,7 +208,7 @@ export function ProductResult({
       const effectiveInStock = targetSize ? targetSize.inStock : activeInStock;
       await getApi().track({
         url: activeUrl,
-        name: result.name,
+        name: activeName,
         imageUrl: activeImage,
         targetSize: size,
         targetColor: color,
@@ -219,7 +232,7 @@ export function ProductResult({
       <ProductImage
         key={activeImage ?? "none"}
         imageUrl={activeImage}
-        name={result.name}
+        name={activeName}
       />
 
       {/* Details */}
@@ -257,7 +270,7 @@ export function ProductResult({
         </div>
 
         <h2 className="mt-2 font-display text-2xl font-semibold leading-tight tracking-tight text-ink">
-          {result.name}
+          {activeName}
         </h2>
 
         <p className="mt-1 font-display text-4xl font-light tracking-tight text-ink">
