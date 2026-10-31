@@ -32,7 +32,7 @@ Grab the latest `.dmg` from the [**Releases**](https://github.com/asilfndk/indit
 
 ## Tech stack
 
-- **Electron 42** — desktop shell (main + preload processes)
+- **Electron 45** — desktop shell (main + preload processes)
 - **Next.js 16** (App Router) — renderer only, statically exported (`output: "export"`)
 - **TypeScript** · **Tailwind CSS v4** · **framer-motion** · **lucide-react**
 - **SQLite** (`better-sqlite3`) + **Drizzle ORM**
@@ -70,7 +70,7 @@ All scrapers return a common shape:
 
 ## Development
 
-> Requires Node.js 22.18+ and npm. `better-sqlite3` is a native module — if you change the Electron/Node ABI, run `npm run rebuild`.
+> Requires Node.js 22.18+ and npm.
 
 ```bash
 npm install
@@ -95,17 +95,16 @@ npm run dist:x64
 
 ### Scripts
 
-| Command               | Description                                       |
-| --------------------- | ------------------------------------------------- |
-| `npm run dev`         | Next dev + Electron together (`concurrently`)     |
-| `npm run build`       | Build renderer + main                             |
-| `npm run dist`        | Package macOS `.dmg` (arm64 + x64)                |
-| `npm run rebuild`     | Rebuild `better-sqlite3` against the Electron ABI |
-| `npm run lint`        | ESLint                                            |
-| `npm test`            | Unit tests (`node:test`)                          |
-| `npm run db:generate` | Generate a Drizzle migration                      |
-| `npm run db:migrate`  | Apply migrations (dev)                            |
-| `npm run db:studio`   | Drizzle Studio                                    |
+| Command               | Description                                   |
+| --------------------- | --------------------------------------------- |
+| `npm run dev`         | Next dev + Electron together (`concurrently`) |
+| `npm run build`       | Build renderer + main                         |
+| `npm run dist`        | Package macOS `.dmg` (arm64 + x64)            |
+| `npm run lint`        | ESLint                                        |
+| `npm test`            | Unit tests (`node:test`)                      |
+| `npm run db:generate` | Generate a Drizzle migration                  |
+| `npm run db:migrate`  | Apply migrations (dev)                        |
+| `npm run db:studio`   | Drizzle Studio                                |
 
 ### CI/CD
 

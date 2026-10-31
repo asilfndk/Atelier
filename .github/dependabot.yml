@@ -5,6 +5,13 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # typescript-eslint does not support TS 7 yet; drop this once it does.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # node-cron 4 reads import.meta.url at load, which crashes our CJS bundle.
+      - dependency-name: node-cron
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: [minor, patch]
