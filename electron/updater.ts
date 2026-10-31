@@ -21,7 +21,7 @@ import { notifyUpdateAvailable } from "./notifications";
  * Applications.
  */
 
-const REPO = "asilfndk/inditex-tracker";
+const REPO = "asilfndk/Atelier";
 const API_LATEST = `https://api.github.com/repos/${REPO}/releases/latest`;
 
 export type UpdateStatus =
