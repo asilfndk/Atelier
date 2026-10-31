@@ -131,10 +131,19 @@ app.whenReady().then(async () => {
   // Stores fail transiently (SSL handshakes, bot walls): failed URLs go to the
   // back of the queue for one retry before they count.
   const apiBlocked = process.env.LIVE_API_BLOCKED?.split(",") ?? [];
+  const siteBlocked = process.env.LIVE_SITE_BLOCKED?.split(",") ?? [];
   const queue = [...targets];
   const failed = new Map<string, string>();
   const retried = new Set<string>();
   const fail = (url: string, reason: string) => {
+    // Only a refused page: any other failure of these brands still counts.
+    if (
+      siteBlocked.includes(getScraperForUrl(url)?.brand ?? "") &&
+      reason.includes("product data is missing")
+    ) {
+      console.log("  WARN: site blocked from this IP, not checked");
+      return;
+    }
     failed.set(url, reason.split("\n")[0]);
     if (!retried.has(url)) {
       retried.add(url);
