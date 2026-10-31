@@ -24,9 +24,12 @@ interface Props {
    * re-enables it.
    */
   tracked?: {
+    id: number;
     url: string;
     targetSize: string | null;
     targetColor: string | null;
+    trackStock: boolean;
+    trackPrice: boolean;
   }[];
 }
 
@@ -110,12 +113,13 @@ export function ProductResult({
   const activeUrl = variant?.url ?? url;
   // Same dedup rule as the repo ('' coalescing included): the button locks only
   // when the selected combo is already tracked; picking a different size/color unlocks it.
-  const alreadyTracked = tracked.some(
+  const trackedRow = tracked.find(
     (t) =>
       t.url === activeUrl &&
       (t.targetSize ?? "") === (size ?? "") &&
       (t.targetColor ?? "") === (color ?? ""),
   );
+  const alreadyTracked = trackedRow !== undefined;
 
   function selectColor(c: string | null) {
     setColor(c);
@@ -145,9 +149,29 @@ export function ProductResult({
       setVariantLoading(false);
     }
   }
-  const [notifyStock, setNotifyStock] = useState(true);
-  const [notifyPrice, setNotifyPrice] = useState(true);
+  const [draftStock, setDraftStock] = useState(true);
+  const [draftPrice, setDraftPrice] = useState(true);
   const [tracking, setTracking] = useState(false);
+  // A tracked combo's toggles are its saved alerts, shared with the watchlist's
+  // price tag; an untracked combo's are a draft for "Add to Watchlist".
+  const notifyStock = trackedRow ? trackedRow.trackStock : draftStock;
+  const notifyPrice = trackedRow ? trackedRow.trackPrice : draftPrice;
+
+  function toggleStock() {
+    if (trackedRow) {
+      void getApi().updateProduct(trackedRow.id, { trackStock: !notifyStock });
+    } else {
+      setDraftStock(!notifyStock);
+    }
+  }
+
+  function togglePrice() {
+    if (trackedRow) {
+      void getApi().updateProduct(trackedRow.id, { trackPrice: !notifyPrice });
+    } else {
+      setDraftPrice(!notifyPrice);
+    }
+  }
 
   async function track() {
     setTracking(true);
@@ -283,13 +307,13 @@ export function ProductResult({
         <div className="mt-6 flex flex-wrap gap-4 border-t border-hairline pt-4">
           <Toggle
             active={notifyStock}
-            onClick={() => setNotifyStock((v) => !v)}
+            onClick={toggleStock}
             icon={<Bell className="h-3.5 w-3.5" />}
             label="Notify me when it's back in stock"
           />
           <Toggle
             active={notifyPrice}
-            onClick={() => setNotifyPrice((v) => !v)}
+            onClick={togglePrice}
             icon={<Tag className="h-3.5 w-3.5" />}
             label="Notify me when the price drops"
           />

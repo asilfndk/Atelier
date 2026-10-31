@@ -228,13 +228,6 @@ export default function Home() {
             }}
           />
         </div>
-        <footer className="border-t border-hairline px-4 py-3">
-          <div className="flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-muted">
-            {Object.values(BRAND_LABELS).map((b) => (
-              <span key={b}>{b}</span>
-            ))}
-          </div>
-        </footer>
       </aside>
 
       {/* Main panel */}
@@ -242,7 +235,7 @@ export default function Home() {
         <div className="drag-region h-20 shrink-0" />
 
         <div className="flex-1 overflow-y-auto px-10 py-2">
-          <div className="mx-auto w-full max-w-2xl">
+          <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col">
             <CheckBar key={checkBarKey} onCheck={check} loading={loading} />
 
             {error && (
@@ -252,7 +245,7 @@ export default function Home() {
               </div>
             )}
 
-            <div className="mt-6">
+            <div className="mt-6 flex flex-1 flex-col">
               {result && (
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
@@ -301,7 +294,7 @@ export default function Home() {
 
 function EmptyState() {
   return (
-    <div className="select-none pb-16 pt-8">
+    <div className="flex flex-1 select-none flex-col pb-6 pt-8">
       <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted">
         Stock &amp; price tracking
       </p>
@@ -316,6 +309,16 @@ function EmptyState() {
         instantly — then add it to your watchlist and Atelier keeps an eye on it
         in the background.
       </p>
+      <section className="mt-auto pt-12">
+        <h3 className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted">
+          Supported stores
+        </h3>
+        <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-hairline pt-3 text-sm text-ink-soft">
+          {Object.values(BRAND_LABELS).map((b) => (
+            <li key={b}>{b}</li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }
