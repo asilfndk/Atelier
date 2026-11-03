@@ -250,9 +250,12 @@ const scrapers: Scraper[] = [
     brand: "nike",
     hostname: "nike.com",
     script: NIKE_PAGE_SCRIPT,
+    // /tr/t/<slug>/<styleColor>, or the canonical /tr/t/<slug> (default colorway)
     parse: (u) => {
-      const m = u.pathname.match(/^\/tr\/t\/[^/]+\/([A-Z0-9]+-\d{3})\/?$/i);
-      return m ? { productId: m[1] } : null;
+      const m = u.pathname.match(
+        /^\/tr\/t\/([^/]+?)(?:\/([A-Z0-9]+-\d{3}))?\/?$/i,
+      );
+      return m ? { productId: m[2] ?? m[1] } : null;
     },
     api: nikeApi,
   }),

@@ -50,6 +50,8 @@ const LISTINGS = [
   // Nike — multi-colorway shoe + a "Tall" length option.
   "https://www.nike.com/tr/t/hybrid-rn-erkek-antrenman-ayakkabisi-pxCEblh5/IV5066-600",
   "https://www.nike.com/tr/t/jordan-brooklyn-chore-erkek-ceketi-LOwsuQb8/IM8989-010",
+  // Canonical (share) URL with no /<styleColor> segment.
+  "https://www.nike.com/tr/t/jordan-brooklyn-realtree-crew-yaka-erkek-sweatshirtu-IoOznQA9",
   "https://www.barcin.com/nike-jordan-flt-wings-fleece-erkek-sweatshirt-siyah-siyah-beyaz/?integration_color_hash=Siyah-Siyah-Kırmızı",
 
   // Intersport — TR shoe sizes (the Akinon label is the US size).
