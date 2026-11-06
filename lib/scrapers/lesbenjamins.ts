@@ -1,4 +1,5 @@
-import { fetchJson } from "./base";
+import { net } from "electron";
+import { BROWSER_HEADERS } from "./base";
 import type { ColorVariant, ParsedProduct, ProductStock } from "./types";
 
 /** The subset of Shopify's /products/<handle>.js response that we use */
@@ -38,9 +39,14 @@ function absolutize(src: string | null | undefined): string | null {
 export async function lesbenjaminsApi(
   parsed: ParsedProduct,
 ): Promise<ProductStock | null> {
-  const data = (await fetchJson(
+  // Shopify's Cloudflare answers Electron's Node fetch with HTTP 429 (TLS
+  // fingerprint) but serves Chromium's network stack, so go through net.fetch.
+  const res = await net.fetch(
     `https://lesbenjamins.com/products/${parsed.productId}.js`,
-  )) as ShopifyProduct;
+    { headers: BROWSER_HEADERS, signal: AbortSignal.timeout(8000) },
+  );
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = (await res.json()) as ShopifyProduct;
   if (!data || !Array.isArray(data.variants) || !data.variants.length) {
     return null;
   }
