@@ -25,8 +25,11 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build && npm audit --audit-level=high",
     "test": "node --test \"lib/**/*.test.ts\"",
-    "live-test": "node scripts/build-electron.mjs --live-test && electron dist-electron/live-test.js",
+    "live-test": "node scripts/build-electron.mjs --live-test && env -u ELECTRON_RUN_AS_NODE electron dist-electron/live-test.js",
+    "scheduler-test": "node scripts/build-electron.mjs --live-test && env -u ELECTRON_RUN_AS_NODE electron dist-electron/scheduler-test.js",
+    "release": "bash scripts/release.sh",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"

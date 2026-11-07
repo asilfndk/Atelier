@@ -95,23 +95,24 @@ npm run dist:x64
 
 ### Scripts
 
-| Command               | Description                                   |
-| --------------------- | --------------------------------------------- |
-| `npm run dev`         | Next dev + Electron together (`concurrently`) |
-| `npm run build`       | Build renderer + main                         |
-| `npm run dist`        | Package macOS `.dmg` (arm64 + x64)            |
-| `npm run lint`        | ESLint                                        |
-| `npm test`            | Unit tests (`node:test`)                      |
-| `npm run db:generate` | Generate a Drizzle migration                  |
-| `npm run db:migrate`  | Apply migrations (dev)                        |
-| `npm run db:studio`   | Drizzle Studio                                |
+| Command                  | Description                                   |
+| ------------------------ | --------------------------------------------- |
+| `npm run dev`            | Next dev + Electron together (`concurrently`) |
+| `npm run build`          | Build renderer + main                         |
+| `npm run dist`           | Package macOS `.dmg` (arm64 + x64)            |
+| `npm run lint`           | ESLint                                        |
+| `npm test`               | Unit tests (`node:test`)                      |
+| `npm run check`          | Format, lint, types, unit tests, build, audit |
+| `npm run live-test`      | Real-store scraper checks                     |
+| `npm run scheduler-test` | Scheduler and browser queue checks            |
+| `npm run release`        | Check, live-test, package, verify, publish    |
+| `npm run db:generate`    | Generate a Drizzle migration                  |
+| `npm run db:migrate`     | Apply migrations (dev)                        |
+| `npm run db:studio`      | Drizzle Studio                                |
 
-### CI/CD
+### Release
 
-- **CI** (`.github/workflows/ci.yml`): formatting, lint, types, unit tests, build and `npm audit` on every push to `main` and every PR.
-- **Release** (`.github/workflows/release.yml`): pushing a `vX.Y.Z` tag that matches `package.json` runs CI and the live tests, builds and verifies both DMGs, then publishes the GitHub release the in-app updater reads. Run it manually for a dry run that only uploads artifacts.
-- **Live tests** (`.github/workflows/live.yml`): real-store scraper and scheduler checks, nightly and on pushes touching scrapers, the scheduler or the lockfile. Separate from CI so a store outage can't block everyday pushes; a release does wait for them.
-- **Dependabot** opens weekly PRs for npm packages and GitHub Actions.
+Everything runs locally; there is no CI. `npm run release` releases the version in `package.json` from a clean `main`: it runs `check` and both live tests, packages both DMGs outside iCloud Drive, verifies them, then tags, pushes and publishes the GitHub release the in-app updater reads. `npm run release -- --dry-run` stops before tagging and leaves the DMGs in a temp dir.
 
 ### Adding a new store scraper
 
