@@ -1,4 +1,4 @@
-import type { AkinonKeys } from "./akinon";
+import { akinonProduct, type AkinonKeys } from "./akinon";
 import { ikasProduct } from "./ikas";
 
 /**
@@ -1686,58 +1686,15 @@ export const NIKE_PAGE_SCRIPT = `
   };
 `;
 
-/** Akinon stores: the public JSON preserves the requested color. Must stay in step with akinonApi. */
+/** Akinon stores: Layer 1's own parser, serialized, so the layers can't drift. */
 export const makeAkinonScript = (keys: AkinonKeys) => `
-  const keys = ${JSON.stringify(keys)};
   const endpoint = new URL(location.href);
   endpoint.searchParams.set('format', 'json');
   const response = await fetch(endpoint.href, { signal: AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error('Akinon product request failed: ' + response.status);
-  const data = await response.json();
-  if (!data.product?.name || !Array.isArray(data.variants)) throw new Error('Akinon product data is missing');
-  const colorOptions = data.variants.find(v => v.attribute_key === keys.color)?.options || [];
-  const selectedColor = endpoint.searchParams.get(keys.color) || data.product.attributes?.[keys.color];
-  const selectedOption = colorOptions.find(color => color.value === selectedColor);
-  if (selectedColor && colorOptions.length && !selectedOption) throw new Error('Akinon requested color is missing');
-  const product = selectedOption?.product || data.product;
-  const sizeOptions = data.variants.find(v => v.attribute_key === keys.size)?.options || [];
-  // Akinon can fall back to another color for sold-out sizes; never report that color's stock.
-  const ownSizes = sizeOptions.filter(size => !selectedColor || size.product?.attributes?.[keys.color] === selectedColor);
-  // A fully sold-out color has only other colors' rows: keep them as sold-out
-  // labels, so its restock is noticed. Otherwise no rows is a partial payload.
-  const soldOut = !ownSizes.length && selectedOption?.in_stock === false;
-  if (sizeOptions.length ? !ownSizes.length && !soldOut : !selectedOption) throw new Error('Akinon size availability is missing');
-  const rows = soldOut ? sizeOptions : ownSizes;
-  // Intersport lists a placeholder row next to the real sizes; its page hides it.
-  const sizes = rows.filter(size => rows.length < 2 || size.label !== 'Standart').map(size => ({
-    label: (keys.sizeName && size.product?.attributes?.[keys.sizeName]) || size.label || '',
-    inStock: !soldOut && size.in_stock === true, price: soldOut ? null : Number(size.product?.price) || null
-  }));
-  const price = Number(product.price) || null;
-  const imageUrl = product.productimage_set?.[0]?.image || null;
-  // Colorways can share a name: add the code, which is the same on every color's page.
-  const colorName = color => (keys.colorName && color.product?.attributes?.[keys.colorName]) || color.label || '';
-  const colorLabel = color => colorOptions.filter(o => colorName(o) === colorName(color)).length > 1
-    ? colorName(color) + ' (' + color.value + ')' : colorName(color);
-  // Put the requested color first; canonical product paths may differ from the incoming slug.
-  colorOptions.sort((a, b) => Number(b.value === selectedColor) - Number(a.value === selectedColor));
-  const colorVariants = colorOptions.map(color => {
-    const url = new URL(color.product?.absolute_url || '', location.origin);
-    url.searchParams.set(keys.color, color.value);
-    return {
-      color: colorLabel(color), url: url.href, price: Number(color.product?.price) || null,
-      // With sizes, the flag is one SKU's: false doesn't mean the color is sold out.
-      ...(color.in_stock === true || !sizeOptions.length ? { inStock: color.in_stock === true } : {}),
-      ...(color.value === selectedColor ? { imageUrl, sizes } : {})
-    };
-  });
-  return {
-    name: product.name, price, currency: product.currency_type?.toUpperCase() || 'TRY', imageUrl,
-    colors: colorVariants.map(v => v.color), sizes,
-    // Sizeless items (sunglasses, bags) carry stock on the color's only SKU.
-    inStock: sizes.length ? sizes.some(s => s.inStock) : selectedOption?.in_stock === true,
-    ...(colorVariants.length ? { colorVariants } : {})
-  };
+  const product = (${akinonProduct})(await response.json(), location.href, ${JSON.stringify(keys)});
+  if (!product) throw new Error('Akinon product data is missing');
+  return product;
 `;
 
 /** ikas stores: Layer 1's own parser, serialized, so the layers can't drift. */

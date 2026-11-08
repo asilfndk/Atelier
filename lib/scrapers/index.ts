@@ -1,5 +1,5 @@
-import { akinonApi, type AkinonKeys } from "./akinon";
-import { fetchText, nextData } from "./base";
+import { akinonProduct, type AkinonKeys } from "./akinon";
+import { fetchJson, fetchText, nextData } from "./base";
 import { boynerApi } from "./boyner";
 import { gratisApi } from "./gratis";
 import { ikasProduct } from "./ikas";
@@ -86,6 +86,13 @@ const IKAS = {
       p.url,
     ),
 };
+
+/** Akinon's JSON page (`?format=json`); the server is slow (2–7s), hence the timeout. */
+async function akinonApi(p: ParsedProduct, keys: AkinonKeys) {
+  const endpoint = new URL(p.url);
+  endpoint.searchParams.set("format", "json");
+  return akinonProduct(await fetchJson(endpoint.href, 15000), p.url, keys);
+}
 
 const scrapers: Scraper[] = [
   makeScraper({

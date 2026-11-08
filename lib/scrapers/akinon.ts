@@ -1,5 +1,4 @@
-import { fetchJson } from "./base";
-import type { ColorVariant, ParsedProduct, ProductStock } from "./types";
+import type { ColorVariant, ProductStock } from "./types";
 
 /** Which Akinon attributes a store uses; each store names them differently */
 export interface AkinonKeys {
@@ -21,6 +20,10 @@ interface AkinonProduct {
   absolute_url?: string;
   attributes?: Record<string, string | undefined>;
   productimage_set?: { image?: string }[];
+  basket_offers?: {
+    listing_kwargs?: { quantity?: number; discounted_total_price?: number };
+    client_types?: string[];
+  }[];
 }
 
 interface AkinonOption {
@@ -38,22 +41,40 @@ interface AkinonDetail {
 /**
  * Akinon stores (Barçın, Intersport, SPX, Fashfed): https://<store>/<slug>/?<color key>=<color>
  *
- * Layer 1 is Akinon's public JSON representation of the product page
+ * Parses Akinon's public JSON representation of the product page
  * (`?format=json`, no auth). It keeps the requested color; sibling colors
  * carry no sizes, so their `imageUrl` is omitted and the renderer lazily
  * checks their URL. Akinon can fall back to another color for sold-out
  * sizes — those are dropped so we never report that color's stock.
- * The server is slow (2–7s), hence the longer timeout. Must stay in step
- * with makeAkinonScript, or tracked colors and sizes drift.
+ * Layer 1 (akinonApi) and makeAkinonScript both run this, so it must stay
+ * self-contained: no imports or outer helpers.
  */
-export async function akinonApi(
-  parsed: ParsedProduct,
+export function akinonProduct(
+  json: unknown,
+  pageUrl: string,
   keys: AkinonKeys,
-): Promise<ProductStock | null> {
-  const endpoint = new URL(parsed.url);
-  endpoint.searchParams.set("format", "json");
-  const data = (await fetchJson(endpoint.href, 15000)) as AkinonDetail;
+): ProductStock | null {
+  const data = json as AkinonDetail;
   if (!data?.product?.name || !Array.isArray(data.variants)) return null;
+  const endpoint = new URL(pageUrl);
+
+  // "Sepette %20 İndirim": a basket campaign, listed only on the requested SKU as a
+  // discounted total. Scale this color's prices by it; app-only offers (client_types) don't apply.
+  // ponytail: assumes a percentage offer; a fixed-amount one is spread proportionally.
+  const listPrice = Number(data.product.price);
+  const basketPrice = Math.min(
+    ...(data.product.basket_offers ?? [])
+      .filter((o) => !o.client_types?.length)
+      .map(
+        (o) =>
+          Number(o.listing_kwargs?.discounted_total_price) /
+          (o.listing_kwargs?.quantity || 1),
+      )
+      .filter((n) => n > 0),
+  );
+  const ratio = basketPrice < listPrice ? basketPrice / listPrice : 1;
+  const basket = (price: unknown) =>
+    Math.round(Number(price) * ratio * 100) / 100 || null;
 
   const options = (key: string) =>
     data.variants?.find((v) => v.attribute_key === key)?.options ?? [];
@@ -87,7 +108,7 @@ export async function akinonApi(
         (keys.sizeName && s.product?.attributes?.[keys.sizeName]) ||
         (s.label ?? ""),
       inStock: !soldOut && s.in_stock === true,
-      price: soldOut ? null : Number(s.product?.price) || null,
+      price: soldOut ? null : basket(s.product?.price),
     }));
   const imageUrl = product.productimage_set?.[0]?.image ?? null;
 
@@ -110,7 +131,10 @@ export async function akinonApi(
     return {
       color: colorLabel(c),
       url: url.href,
-      price: Number(c.product?.price) || null,
+      price:
+        c.value === selectedColor
+          ? basket(c.product?.price)
+          : Number(c.product?.price) || null,
       // With sizes, the flag is one SKU's: false doesn't mean the color is sold out.
       ...(c.in_stock === true || !sizeOptions.length
         ? { inStock: c.in_stock === true }
@@ -121,7 +145,7 @@ export async function akinonApi(
 
   return {
     name: product.name ?? data.product.name,
-    price: Number(product.price) || null,
+    price: basket(product.price),
     currency: product.currency_type?.toUpperCase() ?? "TRY",
     imageUrl,
     colors: colorVariants.map((v) => v.color),
