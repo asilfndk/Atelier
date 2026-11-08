@@ -36,7 +36,7 @@ interface AkinonDetail {
 }
 
 /**
- * Akinon stores (Barçın, Intersport, SPX): https://<store>/<slug>/?<color key>=<color>
+ * Akinon stores (Barçın, Intersport, SPX, Fashfed): https://<store>/<slug>/?<color key>=<color>
  *
  * Layer 1 is Akinon's public JSON representation of the product page
  * (`?format=json`, no auth). It keeps the requested color; sibling colors

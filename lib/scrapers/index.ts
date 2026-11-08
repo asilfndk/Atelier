@@ -275,6 +275,14 @@ const scrapers: Scraper[] = [
     api: (p) => akinonApi(p, INTERSPORT),
   }),
   makeScraper({
+    brand: "fashfed",
+    hostname: "fashfed.com",
+    // Same Akinon attributes as Intersport; URLs keep their ?seller_id.
+    script: makeAkinonScript(INTERSPORT),
+    parse: urunCodeParse,
+    api: (p) => akinonApi(p, INTERSPORT),
+  }),
+  makeScraper({
     brand: "spx",
     hostname: "spx.com.tr",
     script: makeAkinonScript(SPX),

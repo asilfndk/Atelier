@@ -43,6 +43,7 @@ const PARITY = new Set<string>([
   "columbia",
   "konfuse",
   "bushido",
+  "fashfed",
 ]);
 
 // Brand listing/category pages — real product links are discovered from these.
@@ -56,6 +57,8 @@ const LISTINGS = [
 
   // Intersport — TR shoe sizes (the Akinon label is the US size).
   "https://www.intersport.com.tr/urun/nike-initiator-erkek-siyah-gunluk-spor-ayakkabi/ib4595-001/",
+  // Fashfed (Akinon, Intersport's keys) — a marketplace ?seller_id + TR shoe sizes.
+  "https://www.fashfed.com/urun/jordan-air-1-low-se-erkek-siyah-spor-ayakkabi-iq5490/?seller_id=1",
   // SPX — sold-out sizes + a color/size in the query string.
   "https://www.spx.com.tr/salomon-aero-blaze-4-grvl-gtx-erkek-siyah-gravel-kosu-ayakkabisi-mavi-l45403000-bbp0/?integration_color_code=BBP0&integration_first_size=8",
   // The North Face — sold-out sizes + a sibling color on sale.

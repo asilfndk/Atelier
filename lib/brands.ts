@@ -28,6 +28,7 @@ export const BRAND_LABELS: Record<Brand, string> = {
   columbia: "Columbia",
   konfuse: "Konfuse",
   bushido: "Bushido",
+  fashfed: "Fashfed",
 };
 
 export function formatPrice(
