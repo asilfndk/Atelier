@@ -21,10 +21,11 @@ if ! $dry; then
 fi
 
 # iCloud Drive leaves "name 2" copies in synced folders; electron-builder's dependency
-# walk hangs on them in node_modules, and out/ copies would ship in the app.
-dupes=$(find node_modules out dist-electron \( -name "* [0-9]" -o -name "* [0-9].*" \) 2>/dev/null | head -3 || true)
+# walk hangs on them in node_modules, out/ copies would ship in the app, and
+# Turbopack refuses to open a .next/cache holding one ("Unexpected file").
+dupes=$(find node_modules out dist-electron .next \( -name "* [0-9]" -o -name "* [0-9].*" \) 2>/dev/null | head -3 || true)
 if [[ -n "$dupes" ]]; then
-  printf 'iCloud duplicates found, e.g.:\n%s\nrun: rm -rf node_modules out dist-electron && npm ci\n' "$dupes" >&2
+  printf 'iCloud duplicates found, e.g.:\n%s\nrun: rm -rf node_modules out dist-electron .next && npm ci\n' "$dupes" >&2
   exit 1
 fi
 
