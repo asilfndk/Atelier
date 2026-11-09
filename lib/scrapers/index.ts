@@ -76,6 +76,13 @@ function urunCodeParse(u: URL): { productId: string } | null {
   return productId ? { productId } : null;
 }
 
+/** The code `pattern` captures at the tail of the last segment; otherwise the segment itself. */
+const slugCodeParse = (pattern: RegExp) => (u: URL) => {
+  const last = u.pathname.split("/").filter(Boolean).pop() ?? "";
+  const productId = last.match(pattern)?.[1] ?? last;
+  return productId ? { productId } : null;
+};
+
 const IKAS = {
   script: IKAS_PAGE_SCRIPT,
   ready: "!!document.getElementById('__NEXT_DATA__')",
@@ -156,12 +163,7 @@ const scrapers: Scraper[] = [
     hostname: "tommy.com",
     script: GENERIC_PAGE_SCRIPT,
     // ...erkek-hirka_206739 → 206739; otherwise the slug itself.
-    parse: (u) => {
-      const last = u.pathname.split("/").filter(Boolean).pop() ?? "";
-      const m = last.match(/_(\d+)$/);
-      const productId = m ? m[1] : last;
-      return productId ? { productId } : null;
-    },
+    parse: slugCodeParse(/_(\d+)$/),
     api: tommyApi,
   }),
   makeScraper({
@@ -169,12 +171,7 @@ const scrapers: Scraper[] = [
     hostname: "victoriassecret.com.tr",
     script: VICTORIASSECRET_PAGE_SCRIPT,
     // ...-VS27291321 → VS27291321; otherwise the slug.
-    parse: (u) => {
-      const last = u.pathname.split("/").filter(Boolean).pop() ?? "";
-      const m = last.match(/-(VS\d+)$/i);
-      const productId = m ? m[1] : last;
-      return productId ? { productId } : null;
-    },
+    parse: slugCodeParse(/-(VS\d+)$/i),
     api: victoriassecretApi,
   }),
   makeScraper({
@@ -329,7 +326,8 @@ const scrapers: Scraper[] = [
 
 /** Return the scraper that can handle the URL (null if none) */
 export function getScraperForUrl(url: string): Scraper | null {
-  return scrapers.find((s) => s.canHandle(url)) ?? null;
+  const host = URL.parse(url)?.hostname;
+  return (host && scrapers.find((s) => s.handlesHost(host))) || null;
 }
 
 // ponytail: in-flight only, no TTL cache; add one if a click right after a round should reuse the result

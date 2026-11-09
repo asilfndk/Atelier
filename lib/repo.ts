@@ -115,11 +115,22 @@ const HISTORY_KEEP = 500;
 /** Record a check result in history and update the product's latest state */
 export function recordCheck(
   id: number,
-  inStock: boolean,
-  price: number | null,
-  sizes?: { label: string; inStock: boolean }[] | null,
-  colors?: string[] | null,
-  imageUrl?: string | null,
+  {
+    inStock,
+    price,
+    sizes,
+    colors,
+    imageUrl,
+    lowestPrice,
+  }: {
+    inStock: boolean;
+    price: number | null;
+    sizes?: { label: string; inStock: boolean }[] | null;
+    colors?: string[] | null;
+    imageUrl?: string | null;
+    /** New price-drop baseline; omit to keep the stored one */
+    lowestPrice?: number;
+  },
 ): void {
   // If price is null, leave lastPrice alone: a broken scrape must not wipe
   // the last known good price (and the price-drop comparison).
@@ -128,6 +139,7 @@ export function recordCheck(
     lastCheckedAt: new Date(),
   };
   if (price != null) patch.lastPrice = price;
+  if (lowestPrice != null) patch.lowestPrice = lowestPrice;
   if (sizes && sizes.length > 0) patch.lastSizes = JSON.stringify(sizes);
   if (colors && colors.length > 0) patch.lastColors = JSON.stringify(colors);
   // If imageUrl is empty/null, leave it alone: a broken scrape must not wipe the existing image.

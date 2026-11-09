@@ -1,4 +1,4 @@
-import { ipcMain, shell } from "electron";
+import { app, ipcMain, shell } from "electron";
 import { z } from "zod";
 import { checkUrl, getScraperForUrl } from "@/lib/scrapers";
 import {
@@ -16,7 +16,6 @@ import { emitProductsChanged } from "./app-state";
 import { setAutoLaunch } from "./autolaunch";
 import { notifyTest } from "./notifications";
 import { checkAll, reschedule } from "./scheduler";
-import { app } from "electron";
 import {
   checkForUpdate,
   downloadUpdate,

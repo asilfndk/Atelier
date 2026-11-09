@@ -1,11 +1,6 @@
 import cron, { type ScheduledTask } from "node-cron";
 import { checkUrl, getScraperForUrl } from "@/lib/scrapers";
-import {
-  getSettings,
-  listProducts,
-  recordCheck,
-  updateProduct,
-} from "@/lib/repo";
+import { getSettings, listProducts, recordCheck } from "@/lib/repo";
 import type { ScrapeResult } from "@/lib/scrapers";
 import type { Settings, TrackedProduct } from "@/db/schema";
 import { emitProductsChanged } from "./app-state";
@@ -14,6 +9,14 @@ import { notifyPriceDrop, notifyRestock } from "./notifications";
 const DEFAULT_CRON = "*/15 * * * *";
 let task: ScheduledTask | null = null;
 let current: Promise<void> | null = null;
+
+/** The scraped size row matching the product's target size (case-insensitive). */
+function targetSizeOf(p: TrackedProduct, res: ScrapeResult) {
+  const want = p.targetSize?.toLowerCase();
+  return want
+    ? res.sizes.find((s) => s.label.toLowerCase() === want)
+    : undefined;
+}
 
 /**
  * Stock of the target size if one is set, otherwise the overall stock status.
@@ -29,10 +32,7 @@ function effectiveInStock(
 ): boolean | null {
   if (p.targetSize) {
     if (!res.sizes.length) return null;
-    const match = res.sizes.find(
-      (s) => s.label.toLowerCase() === p.targetSize!.toLowerCase(),
-    );
-    return match ? match.inStock : false;
+    return targetSizeOf(p, res)?.inStock ?? false;
   }
   return res.inStock;
 }
@@ -68,12 +68,8 @@ async function checkOne(
 
   // If the target size has its own price (e.g. Sephora ml variants) track that;
   // otherwise the product-wide price.
-  const effPrice =
-    (p.targetSize
-      ? res.sizes.find(
-          (sz) => sz.label.toLowerCase() === p.targetSize!.toLowerCase(),
-        )?.price
-      : null) ?? res.price;
+  const effPrice = targetSizeOf(p, res)?.price ?? res.price;
+  let lowestPrice: number | undefined;
 
   // Price drop: baseline = lowest price ever seen (gradual drops are not missed).
   // If the price later rises and then falls to a level still above the lowest,
@@ -95,12 +91,17 @@ async function checkOne(
       );
     }
     // Baseline maintenance is independent of notification switches — keep it always correct.
-    if (baseline == null || effPrice < baseline) {
-      updateProduct(p.id, { lowestPrice: effPrice });
-    }
+    if (baseline == null || effPrice < baseline) lowestPrice = effPrice;
   }
 
-  recordCheck(p.id, nowInStock, effPrice, res.sizes, res.colors, res.imageUrl);
+  recordCheck(p.id, {
+    inStock: nowInStock,
+    price: effPrice,
+    sizes: res.sizes,
+    colors: res.colors,
+    imageUrl: res.imageUrl,
+    lowestPrice,
+  });
 }
 
 // In-round concurrency: saturates the browser semaphore (2) + leaves room for API-path checks.
@@ -118,14 +119,14 @@ export function checkAll(): Promise<void> {
 }
 
 async function runRound(): Promise<void> {
-  const queue = listProducts();
+  const products = listProducts();
   // ponytail: ordering, not separate pools; split API and browser pools if rounds still stall
-  // Stable sort: newest-first order is kept within each group.
-  queue.sort(
-    (a, b) =>
-      Number(!!getScraperForUrl(b.url)?.hasApi) -
-      Number(!!getScraperForUrl(a.url)?.hasApi),
-  );
+  // API rows first; newest-first order is kept within each group.
+  const hasApi = (p: TrackedProduct) => !!getScraperForUrl(p.url)?.hasApi;
+  const queue = [
+    ...products.filter(hasApi),
+    ...products.filter((p) => !hasApi(p)),
+  ];
   const s = getSettings();
   const memo = new Map<string, Promise<ScrapeResult>>();
   await Promise.all(

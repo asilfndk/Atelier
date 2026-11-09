@@ -1,6 +1,7 @@
 import type { Brand } from "@/db/schema";
 import { resolveImageUrl } from "./base";
-import { normalizeRaw, scrapeWithBrowser } from "./browser";
+import { scrapeWithBrowser } from "./browser";
+import { normalizeRaw } from "./normalize";
 import {
   productStockSchema,
   type ParsedProduct,
@@ -15,7 +16,7 @@ import {
  */
 export interface ScraperConfig {
   brand: Brand;
-  /** Hostname `canHandle` matches exactly or as a subdomain (e.g. "zara.com") */
+  /** Hostname `handlesHost` matches exactly or as a subdomain (e.g. "zara.com") */
   hostname: string;
   /** Layer-2 page script (from page-script.ts) */
   script: string;
@@ -56,13 +57,8 @@ export class Scraper {
     return !!this.cfg.api;
   }
 
-  canHandle(url: string): boolean {
-    try {
-      const h = new URL(url).hostname;
-      return h === this.cfg.hostname || h.endsWith("." + this.cfg.hostname);
-    } catch {
-      return false;
-    }
+  handlesHost(h: string): boolean {
+    return h === this.cfg.hostname || h.endsWith("." + this.cfg.hostname);
   }
 
   parseUrl(url: string): ParsedProduct | null {
