@@ -1,126 +1,123 @@
 # Atelier
 
-A multi-brand stock & price tracker for macOS, built as a menu-bar Electron app. Paste a product URL to check availability instantly, or add it to your watchlist to get a native desktop notification the moment it comes back in stock or drops in price.
+A multi-brand stock and price tracker for macOS, built as a menu-bar Electron app. Paste a product URL to check availability instantly, or add it to your watchlist and get a desktop notification when it comes back in stock or drops in price.
 
-Atelier lives in the menu bar (it never shows in the Dock — `LSUIElement`), so it keeps running in the background and checking your products on a schedule even when the window is closed. Size- and color-level filtering is supported.
+Atelier lives in the menu bar and never shows in the Dock (`LSUIElement`), so it keeps checking your products on a schedule while the window is closed.
 
 ## Supported stores
 
-|             |                                                                                                                                                                                                                                                   |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Inditex** | Zara · Bershka · Stradivarius · Pull & Bear · Lefties · Oysho · Massimo Dutti                                                                                                                                                                     |
-| **Others**  | Nike · Barçın · Mango · Sephora · SneaksUp · Sportinn · Tommy Hilfiger · Victoria's Secret · Boyner · Wunder · Superstep · Gratis · Watsons · Les Benjamins · Intersport · SPX · The North Face · Columbia · Konfuse · Bushido · Fashfed · Levi's |
+- **Inditex:** Zara · Bershka · Stradivarius · Pull & Bear · Lefties · Oysho · Massimo Dutti
+- **Fashion:** Mango · Tommy Hilfiger · Levi's · Victoria's Secret · Les Benjamins · Wunder · Konfuse · Bushido · Boyner · Fashfed
+- **Sport and outdoor:** Nike · Barçın · SneaksUp · Sportinn · Superstep · Intersport · SPX · The North Face · Columbia
+- **Beauty:** Sephora · Gratis · Watsons
 
 ## Features
 
-- **Instant check** — paste any supported product URL and see name, price, image, colors, and per-size stock.
-- **Watchlist** — track a product (optionally pinned to a specific size/color) with no duplicate entries.
-- **Background monitoring** — a `node-cron` job re-checks every tracked product on a configurable interval.
-- **Smart notifications** — local desktop alerts on out-of-stock → in-stock transitions and on price drops, with a macOS Dock badge.
-- **Size/color filtering** — track exactly the variant you care about.
-- **Live "last checked" counter** and instant re-check on launch or interval change.
-- **Fully local** — all data lives in a local SQLite database; no servers, no accounts, no telemetry.
+- **Instant check:** paste a supported product URL and see its name, price, photo, colors and per-size stock.
+- **Watchlist:** track a product, optionally pinned to one color and size, with no duplicate entries.
+- **Background checks:** every tracked product is re-checked on an interval you set, and once on launch.
+- **Notifications:** a local alert when a product comes back in stock or its price drops.
+- **Price history:** each check is recorded, so you can see how a product's price moved.
+- **In-app updates:** new versions are downloaded from GitHub Releases and verified by checksum before installing.
+- **Launch at login:** optional, from the settings panel.
+- **Fully local:** all data lives in a local SQLite database. No servers, no accounts, no telemetry.
 
 ## Download
 
-Grab the latest `.dmg` from the [**Releases**](https://github.com/asilfndk/Atelier/releases/latest) page:
+Get the latest `.dmg` from the [Releases](https://github.com/asilfndk/Atelier/releases/latest) page:
 
-- **Apple Silicon (M1/M2/M3…):** `Atelier-<version>-arm64.dmg`
-- **Intel Macs:** `Atelier-<version>-x64.dmg`
+- **Apple Silicon:** `Atelier-<version>-arm64.dmg`
+- **Intel:** `Atelier-<version>-x64.dmg`
 
-> The app is distributed unsigned (no Apple Developer account). On first launch macOS may warn you — open **System Settings → Privacy & Security** and click **"Open Anyway"**.
-
-## Tech stack
-
-- **Electron 45** — desktop shell (main + preload processes)
-- **Next.js 16** (App Router) — renderer only, statically exported (`output: "export"`)
-- **TypeScript** · **Tailwind CSS v4** · **framer-motion** · **lucide-react**
-- **SQLite** (`better-sqlite3`) + **Drizzle ORM**
-- **node-cron** — scheduled checks in the main process
-- **esbuild** — bundles `electron/*.ts` → `dist-electron/*.js`
-
-## Architecture
-
-The renderer (Next.js) never touches the database or the network directly. All data access and scraping run in the **Electron main process**; the renderer reaches them only over IPC via a `window.api` bridge exposed by `electron/preload.ts`.
-
-```
-electron/      Main process (bundled by esbuild → dist-electron/)
-  main.ts        Bootstrap: single-instance lock, window, tray, scheduler
-  preload.ts     contextBridge → window.api (whitelisted IPC channels)
-  ipc.ts         ipcMain.handle(...) — all renderer calls
-  scheduler.ts   node-cron job + checkAll/checkOne + notification triggers
-  notifications.ts  Native Notification + macOS dock badge
-app/           Next.js renderer (static export) — single page
-components/     CheckBar, ProductResult, Watchlist, StockMatrix, SettingsPanel
-lib/
-  repo.ts        All DB access (Drizzle) — main process only
-  scrapers/      Per-brand scrapers (hybrid: internal API → hidden BrowserWindow)
-db/            Drizzle schema, migrations, better-sqlite3 connection
-```
-
-### Scraping (two-layer hybrid)
-
-Every brand is a `makeScraper({...})` config in `lib/scrapers/index.ts`, and all share one `check()` flow (`lib/scrapers/simple.ts`):
-
-1. **Layer 1 — internal REST API** (the optional `api` function): the fast path. Returns `null` (or throws) when unsupported/blocked, falling through to layer 2.
-2. **Layer 2 — hidden `BrowserWindow`**: loads the page with realistic headers, runs an in-page extraction script (JSON-LD / DOM), then validates the result with a zod schema. Concurrency is capped at 2.
-
-All scrapers return a common shape:
-`{ name, price, currency, imageUrl, colors[], sizes[{ label, inStock }], inStock }`.
+The app is unsigned (no Apple Developer account). If macOS warns you on first launch, open **System Settings → Privacy & Security** and click **Open Anyway**. If notifications don't appear, see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
 ## Development
 
-> Requires Node.js 22.18+ and npm.
+Requires Node.js 22.18+ and npm.
 
 ```bash
 npm install
-npm run dev      # Next dev server (3000) + Electron together
+echo 'DATABASE_URL=file:./data/app.db' > .env.local   # dev database; the packaged app uses userData/app.db
+npm run dev                                           # Next dev server (port 3000) + Electron
 ```
 
-Create a `.env.local` for development:
+| Command                  | Description                                             |
+| ------------------------ | ------------------------------------------------------- |
+| `npm run dev`            | Next dev server and Electron together                   |
+| `npm run build`          | Build the renderer (`out/`) and main (`dist-electron/`) |
+| `npm run dist`           | Package the macOS `.dmg` files (arm64 + x64)            |
+| `npm run dist:arm64`     | Package one architecture (also `dist:x64`)              |
+| `npm run lint`           | ESLint                                                  |
+| `npm test`               | Unit tests (`node:test`)                                |
+| `npm run check`          | Format, lint, types, unit tests, build, audit           |
+| `npm run live-test`      | Scraper checks against the real stores                  |
+| `npm run scheduler-test` | Scheduler and browser queue checks                      |
+| `npm run release`        | Check, live-test, package, verify, publish              |
+| `npm run db:generate`    | Generate a Drizzle migration after a schema change      |
+| `npm run db:migrate`     | Apply migrations (dev)                                  |
+| `npm run db:studio`      | Drizzle Studio                                          |
 
-```bash
-DATABASE_URL=file:./data/app.db   # SQLite path (production overrides this to userData/app.db)
-CHECK_INTERVAL_CRON=*/15 * * * *  # default check interval (also stored in settings)
+## Architecture
+
+The renderer (Next.js, statically exported) never touches the database or the network. Data access and scraping run in the Electron main process; the renderer reaches them only over IPC, through the `window.api` bridge that `electron/preload.ts` exposes.
+
+```
+electron/        Main process (bundled by esbuild into dist-electron/)
+  main.ts          Bootstrap: single-instance lock, window, tray, scheduler
+  preload.ts       contextBridge → window.api (whitelisted IPC channels)
+  ipc.ts           ipcMain.handle(...): every renderer call
+  scheduler.ts     node-cron job, check rounds, notification triggers
+  notifications.ts Native notifications
+  updater.ts       In-app updates from GitHub Releases
+  db-init.ts       Applies the bundled migrations on launch
+app/             Next.js renderer: a single page
+components/      CheckBar, ProductResult, StockMatrix, PriceHistory, Watchlist, SettingsPanel
+lib/
+  repo.ts          All database access (Drizzle); main process only
+  scrapers/        One scraper per store
+db/              Drizzle schema, migrations, better-sqlite3 connection
 ```
 
-### Build & package
+### Scraping
 
-```bash
-npm run build          # build:next (→ out/) + build:electron (→ dist-electron/)
-npm run dist           # package macOS .dmg — arm64 + x64
-npm run dist:arm64     # single-arch .dmg (faster / isolated)
-npm run dist:x64
+Every store is a `makeScraper({...})` entry in `lib/scrapers/index.ts`, and all share one `check()` flow (`lib/scrapers/simple.ts`):
+
+1. **Layer 1, the store's own API** (the optional `api` function): the fast path. It returns `null` or throws when the store blocks it, and the check falls through.
+2. **Layer 2, a hidden `BrowserWindow`:** loads the product page and runs the store's extraction script from `lib/scrapers/page-script.ts`. At most two windows are open at once.
+
+Both layers are validated against one zod schema and return the same shape:
+
+```ts
+{
+  name, price, currency, imageUrl, inStock,
+  colors: string[],
+  sizes: { label, inStock, price? }[],
+  colorVariants?: { color, url?, imageUrl?, sizes?, price?, inStock? }[],
+}
 ```
 
-### Scripts
+A third option, such as a jeans length, is encoded into the size label: `"32 · 34"`.
 
-| Command                  | Description                                   |
-| ------------------------ | --------------------------------------------- |
-| `npm run dev`            | Next dev + Electron together (`concurrently`) |
-| `npm run build`          | Build renderer + main                         |
-| `npm run dist`           | Package macOS `.dmg` (arm64 + x64)            |
-| `npm run lint`           | ESLint                                        |
-| `npm test`               | Unit tests (`node:test`)                      |
-| `npm run check`          | Format, lint, types, unit tests, build, audit |
-| `npm run live-test`      | Real-store scraper checks                     |
-| `npm run scheduler-test` | Scheduler and browser queue checks            |
-| `npm run release`        | Check, live-test, package, verify, publish    |
-| `npm run db:generate`    | Generate a Drizzle migration                  |
-| `npm run db:migrate`     | Apply migrations (dev)                        |
-| `npm run db:studio`      | Drizzle Studio                                |
+### Adding a store
+
+1. Write the Layer-2 extraction script in `lib/scrapers/page-script.ts`. If the store has colors, return `colorVariants`, one per color with its own URL, so picking a color updates the photo, sizes and price.
+2. Add a `makeScraper({ brand, hostname, script, parse })` entry to `lib/scrapers/index.ts`. If the store has a real internal API, add an `api` function in its own file (see `gratis.ts`, `nike.ts`, `levis.ts`) and add the brand to `PARITY` in `electron/live-test.ts`, so the live test compares the two layers. Akinon and ikas stores need only a few lines: see `barcin` and `konfuse`.
+3. Add the brand to `BRANDS` in `db/schema.ts` and its label to `lib/brands.ts`. The UI's store list reads the labels; no migration is needed.
+4. Add a product URL to `LISTINGS` in `electron/live-test.ts`, run `npm run live-test -- "<url>"`, and add the store to the list at the top of this file.
 
 ### Release
 
-Everything runs locally; there is no CI. `npm run release` releases the version in `package.json` from a clean `main`: it runs `check` and both live tests, packages both DMGs outside iCloud Drive, verifies them, then tags, pushes and publishes the GitHub release the in-app updater reads. `npm run release -- --dry-run` stops before tagging and leaves the DMGs in a temp dir.
+There is no CI; everything runs locally. `npm run release` publishes the version in `package.json` from a clean `main`: it runs `check` and both live tests, packages both DMGs outside iCloud Drive, verifies them, then tags, pushes and creates the GitHub release that the in-app updater reads. `npm run release -- --dry-run` stops before tagging and leaves the DMGs in a temp dir.
 
-### Adding a new store scraper
+## Tech stack
 
-1. Add the layer-2 extraction script to `lib/scrapers/page-script.ts`. If the site has color variants, emit `colorVariants` (one per color, with its own URL) so picking a color updates image/sizes/price.
-2. Register the brand with a `makeScraper({ brand, hostname, script, parse })` entry in the `scrapers[]` list in `lib/scrapers/index.ts`. When the store has a real internal API, add an `api` function in its own file (see `gratis.ts`, `nike.ts`, `boyner.ts`), and add the brand to `PARITY` in `electron/live-test.ts` so the live test checks it against layer 2.
-3. Add the brand to `BRANDS` in `db/schema.ts` and a label in `lib/brands.ts`. The UI's store list reads these labels, and no migration is needed.
-4. Add a product URL to `LISTINGS` in `electron/live-test.ts` and run the live-test harness against it.
+- **Electron 45:** desktop shell (main and preload processes)
+- **Next.js 16** (App Router): renderer only, statically exported
+- **TypeScript**, **Tailwind CSS v4**, **lucide-react**
+- **SQLite** (`better-sqlite3`) with **Drizzle ORM**, **zod** for scraper output
+- **node-cron:** scheduled checks in the main process
+- **esbuild:** bundles `electron/*.ts` into `dist-electron/`
 
 ## License
 
-No license file is currently included — all rights reserved by the author. This is a personal project for educational/personal use.
+No license file is included; all rights are reserved by the author. This is a personal project.
