@@ -4,6 +4,7 @@ import { boynerApi } from "./boyner";
 import { gratisApi } from "./gratis";
 import { ikasProduct } from "./ikas";
 import { lesbenjaminsApi } from "./lesbenjamins";
+import { levisProduct } from "./levis";
 import { nikeApi } from "./nike";
 import {
   inditexParse,
@@ -24,6 +25,7 @@ import {
   GRATIS_PAGE_SCRIPT,
   IKAS_PAGE_SCRIPT,
   LEFTIES_PAGE_SCRIPT,
+  LEVIS_PAGE_SCRIPT,
   makeAkinonScript,
   MANGO_PAGE_SCRIPT,
   MASSIMODUTTI_PAGE_SCRIPT,
@@ -165,6 +167,16 @@ const scrapers: Scraper[] = [
     // ...erkek-hirka_206739 → 206739; otherwise the slug itself.
     parse: slugCodeParse(/_(\d+)$/),
     api: tommyApi,
+  }),
+  makeScraper({
+    brand: "levis",
+    hostname: "levis.com.tr",
+    script: LEVIS_PAGE_SCRIPT,
+    // No JSON-LD; the script refetches the page itself.
+    ready: "!!document.querySelector('[data-js=p-alternate]')",
+    // ...-grey-nights_129581 → 129581; otherwise the slug itself.
+    parse: slugCodeParse(/_(\d+)$/),
+    api: (p) => levisProduct(p.url, fetchText),
   }),
   makeScraper({
     brand: "victoriassecret",

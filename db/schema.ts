@@ -37,6 +37,7 @@ export const BRANDS = [
   "konfuse",
   "bushido",
   "fashfed",
+  "levis",
 ] as const;
 export type Brand = (typeof BRANDS)[number];
 

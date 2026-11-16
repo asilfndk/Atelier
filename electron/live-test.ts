@@ -44,6 +44,7 @@ const PARITY = new Set<string>([
   "konfuse",
   "bushido",
   "fashfed",
+  "levis",
 ]);
 
 // Brand listing/category pages — real product links are discovered from these.
@@ -97,8 +98,12 @@ const LISTINGS = [
   // SneaksUp — multi-color (colorways sharing a name → "GRİ (026)").
   "https://www.sneaksup.com/jordan-air-1-low-gs-553560-026-sneaker-p-253641",
   "https://tr.tommy.com/erkek-tjm-regular-textured-kazak_208537",
+  // Levi's — waist × length jeans; sizes only; sibling colors.
+  "https://www.levis.com.tr/578-baggy-erkek-jean-pantolon-grey-nights_129581",
+  "https://www.levis.com.tr/ls-boxy-western-pier-89-plaid-blue-cream_129816",
+  "https://www.levis.com.tr/502-taper-erkek-jean-pantolon-breaking-news_126301",
   "https://www.victoriassecret.com.tr/victoria-s-secret-saten-dantel-detayli-askili-bluz-ve-firfirli-sort-takimi-VS27291321",
-  "https://www.boyner.com.tr/nike-if1448-010-m-nk-df-acd25-short-kp-b-siyah-erkek-sort-p-15917358",
+  "https://www.boyner.com.tr/nike-if2070-084-m-nk-df-miler-7bf-short-gri-erkek-sort-p-15937651",
   "https://www.boyner.com.tr/fn3868-010-nk-club-bb-po-gfx-hood-siyah-erkek-kapuson-regular-fit-baskili-sweatshirt-p-15605818",
   "https://wunder.com.tr/classic-england-polo-white-ubmw0502fa328-wth0001",
   "https://www.superstep.com.tr/urun/adidas-handball-spezial-kadin-bej-spor-ayakkabi/ki6678/",
