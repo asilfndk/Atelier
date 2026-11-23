@@ -8,7 +8,7 @@ Atelier lives in the menu bar and never shows in the Dock (`LSUIElement`), so it
 
 - **Inditex:** Zara · Bershka · Stradivarius · Pull & Bear · Lefties · Oysho · Massimo Dutti
 - **Fashion:** Mango · Tommy Hilfiger · Levi's · Victoria's Secret · Les Benjamins · Wunder · Konfuse · Bushido · Boyner · Fashfed
-- **Sport and outdoor:** Nike · Barçın · SneaksUp · Sportinn · Superstep · Intersport · SPX · The North Face · Columbia
+- **Sport and outdoor:** Nike · adidas · Puma · Barçın · SneaksUp · Sportinn · Superstep · Intersport · SPX · The North Face · Columbia
 - **Beauty:** Sephora · Gratis · Watsons
 
 ## Features

@@ -1,6 +1,8 @@
+import { adidasProduct } from "./adidas";
 import { akinonProduct, type AkinonKeys } from "./akinon";
 import { ikasProduct } from "./ikas";
 import { levisProduct } from "./levis";
+import { pumaProduct } from "./puma";
 
 /**
  * Zara-specific: name/price/image from JSON-LD + open the "ADD" panel and read
@@ -1665,7 +1667,7 @@ export const NIKE_PAGE_SCRIPT = `
     if (inputs.length) break;
     await __sleep(250);
   }
-  const soldOut = /SOLD_OUT|UNAVAILABLE/.test(product.statusModifier || '');
+  const soldOut = /SOLD_OUT|OUT_OF_STOCK|UNAVAILABLE/.test(product.statusModifier || '');
   if (!inputs.length && !soldOut) throw new Error('Nike size availability did not load');
   const sizes = inputs.length ? inputs.map(input => ({
     // DOM shows "EU 40"; Layer 1 (localizedLabel) and other stores use the bare "40".
@@ -1713,6 +1715,27 @@ export const LEVIS_PAGE_SCRIPT = `
   };
   const product = await (${levisProduct})(location.href, get);
   if (!product) throw new Error('Levis product data is missing');
+  return product;
+`;
+
+/** adidas: the shared parser, serialized; only from the page do its API calls pass Akamai. */
+export const ADIDAS_PAGE_SCRIPT = `
+  const get = async (url) => {
+    const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new Error('adidas request failed: ' + response.status);
+    return response.json();
+  };
+  const product = await (${adidasProduct})(location.href, get);
+  if (!product) throw new Error('adidas product data is missing');
+  return product;
+`;
+
+/** Puma: Layer 1's own parser, serialized; the page drops its spConfig script once it runs. */
+export const PUMA_PAGE_SCRIPT = `
+  const response = await fetch(location.href, { signal: AbortSignal.timeout(8000) });
+  if (!response.ok) throw new Error('Puma request failed: ' + response.status);
+  const product = (${pumaProduct})(await response.text(), location.href);
+  if (!product) throw new Error('Puma product data is missing');
   return product;
 `;
 

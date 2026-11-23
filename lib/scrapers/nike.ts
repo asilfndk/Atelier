@@ -65,7 +65,9 @@ export async function nikeApi(
       const available = new Set(
         (data.objects ?? []).filter((o) => o.available).map((o) => o.gtin),
       );
-      const soldOut = /SOLD_OUT|UNAVAILABLE/.test(p.statusModifier ?? "");
+      const soldOut = /SOLD_OUT|OUT_OF_STOCK|UNAVAILABLE/.test(
+        p.statusModifier ?? "",
+      );
       const sizes = (p.sizes ?? []).map((s) => ({
         // "M Tall" → "M · Tall" (third dimension in the label)
         label: (s.localizedLabel || s.label || "").replace(

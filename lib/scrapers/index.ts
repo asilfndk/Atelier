@@ -6,6 +6,7 @@ import { ikasProduct } from "./ikas";
 import { lesbenjaminsApi } from "./lesbenjamins";
 import { levisProduct } from "./levis";
 import { nikeApi } from "./nike";
+import { pumaProduct } from "./puma";
 import {
   inditexParse,
   lastSegmentParse,
@@ -19,6 +20,7 @@ import { tommyApi } from "./tommy";
 import { victoriassecretApi } from "./victoriassecret";
 import { wunderApi } from "./wunder";
 import {
+  ADIDAS_PAGE_SCRIPT,
   BERSHKA_PAGE_SCRIPT,
   BOYNER_PAGE_SCRIPT,
   GENERIC_PAGE_SCRIPT,
@@ -32,6 +34,7 @@ import {
   NIKE_PAGE_SCRIPT,
   OYSHO_PAGE_SCRIPT,
   PULLANDBEAR_PAGE_SCRIPT,
+  PUMA_PAGE_SCRIPT,
   SEPHORA_PAGE_SCRIPT,
   SNEAKSUP_PAGE_SCRIPT,
   SPORTINN_PAGE_SCRIPT,
@@ -333,6 +336,33 @@ const scrapers: Scraper[] = [
       const m = u.pathname.match(/\/p\/([\w-]+)\/?$/);
       return m ? { productId: m[1] } : null;
     },
+  }),
+  makeScraper({
+    brand: "adidas",
+    hostname: "adidas.com.tr",
+    script: ADIDAS_PAGE_SCRIPT,
+    // The Akamai check page has no Next.js state.
+    ready: "!!document.getElementById('__NEXT_DATA__')",
+    // /tr/<slug>/KE8167.html → KE8167 (the article code)
+    parse: (u) => {
+      const m = u.pathname.match(/\/([A-Z0-9]{5,})\.html$/i);
+      return m ? { productId: m[1].toUpperCase() } : null;
+    },
+    // No Layer 1: Akamai answers a Node request to /api/products with HTTP 403.
+  }),
+  makeScraper({
+    brand: "puma",
+    hostname: "tr.puma.com",
+    script: PUMA_PAGE_SCRIPT,
+    // <slug>-090697-01.html → 090697_01 (model and color, as the store writes it)
+    parse: (u) => {
+      const m = u.pathname.match(/-(\d{6})-(\d{2})\.html$/);
+      if (m) return { productId: `${m[1]}_${m[2]}` };
+      const last = u.pathname.split("/").filter(Boolean).pop() ?? "";
+      return last.endsWith(".html") ? { productId: last.slice(0, -5) } : null;
+    },
+    api: async (p) =>
+      pumaProduct(await fetchText(p.url, 8000, { Accept: "text/html" }), p.url),
   }),
 ];
 

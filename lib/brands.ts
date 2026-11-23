@@ -30,6 +30,8 @@ export const BRAND_LABELS: Record<Brand, string> = {
   bushido: "Bushido",
   fashfed: "Fashfed",
   levis: "Levi's",
+  adidas: "adidas",
+  puma: "Puma",
 };
 
 export function formatPrice(
