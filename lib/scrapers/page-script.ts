@@ -1667,7 +1667,7 @@ export const NIKE_PAGE_SCRIPT = `
     if (inputs.length) break;
     await __sleep(250);
   }
-  const soldOut = /SOLD_OUT|UNAVAILABLE/.test(product.statusModifier || '');
+  const soldOut = /SOLD_OUT|OUT_OF_STOCK|UNAVAILABLE/.test(product.statusModifier || '');
   if (!inputs.length && !soldOut) throw new Error('Nike size availability did not load');
   const sizes = inputs.length ? inputs.map(input => ({
     // DOM shows "EU 40"; Layer 1 (localizedLabel) and other stores use the bare "40".
