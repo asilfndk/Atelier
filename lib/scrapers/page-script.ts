@@ -1718,7 +1718,7 @@ export const LEVIS_PAGE_SCRIPT = `
   return product;
 `;
 
-/** adidas: Layer 1's own parser, serialized; from the page, its API calls pass Akamai. */
+/** adidas: the shared parser, serialized; only from the page do its API calls pass Akamai. */
 export const ADIDAS_PAGE_SCRIPT = `
   const get = async (url) => {
     const response = await fetch(url, { signal: AbortSignal.timeout(8000) });

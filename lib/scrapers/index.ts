@@ -1,4 +1,3 @@
-import { adidasProduct } from "./adidas";
 import { akinonProduct, type AkinonKeys } from "./akinon";
 import { fetchJson, fetchText, nextData } from "./base";
 import { boynerApi } from "./boyner";
@@ -349,7 +348,7 @@ const scrapers: Scraper[] = [
       const m = u.pathname.match(/\/([A-Z0-9]{5,})\.html$/i);
       return m ? { productId: m[1].toUpperCase() } : null;
     },
-    api: (p) => adidasProduct(p.url, (url) => fetchJson(url)),
+    // No Layer 1: Akamai answers a Node request to /api/products with HTTP 403.
   }),
   makeScraper({
     brand: "puma",

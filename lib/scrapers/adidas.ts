@@ -34,10 +34,10 @@ interface AdidasAvailability {
  *
  * The store's own two endpoints, the ones its product page calls: the
  * product (name, price, photo, sizes and the other colors, each its own page)
- * and its per-size availability. Both sit behind Akamai, so a plain request
- * may be refused; Layer 2 calls them from inside the loaded page.
- * Layer 1 and ADIDAS_PAGE_SCRIPT both run this through their own `get`, so
- * it must stay self-contained: no imports or outer helpers.
+ * and its per-size availability. Both sit behind Akamai, which answers a Node
+ * request with HTTP 403, so there is no Layer 1: ADIDAS_PAGE_SCRIPT serializes
+ * this and calls them from inside the loaded page. It must stay
+ * self-contained: no imports or outer helpers.
  */
 export async function adidasProduct(
   pageUrl: string,

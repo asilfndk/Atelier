@@ -45,7 +45,6 @@ const PARITY = new Set<string>([
   "bushido",
   "fashfed",
   "levis",
-  "adidas",
   "puma",
 ]);
 
