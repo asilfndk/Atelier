@@ -100,6 +100,7 @@ export function pumaProduct(
   }
 
   // The analytics map keys each color's style code ("090697_01") to its name.
+  // ponytail: a color with neither a photo nor an analytics entry gets no URL, so it can't be tracked on its own.
   const analytics = (after("setProduct(") ?? {}) as Record<
     string,
     { items?: { color?: string }[] }
@@ -126,6 +127,7 @@ export function pumaProduct(
       const sizes = (sizeAttr?.options ?? [])
         .filter((s) => (s.all_products ?? []).some((p) => all.has(p)))
         .map((s) => ({
+          // ponytail: labels stay as the store writes them ("39-42 (39/42)").
           label: String(s.label ?? "").trim(),
           inStock: (s.products ?? []).some((p) => inStockIds.has(p)),
         }));
