@@ -45,6 +45,8 @@ const PARITY = new Set<string>([
   "bushido",
   "fashfed",
   "levis",
+  "adidas",
+  "puma",
 ]);
 
 // Brand listing/category pages — real product links are discovered from these.
@@ -102,6 +104,14 @@ const LISTINGS = [
   "https://www.levis.com.tr/578-baggy-erkek-jean-pantolon-grey-nights_129581",
   "https://www.levis.com.tr/ls-boxy-western-pier-89-plaid-blue-cream_129816",
   "https://www.levis.com.tr/502-taper-erkek-jean-pantolon-breaking-news_126301",
+  // adidas — sold-out sizes + sibling colors; fractional shoe sizes; one size.
+  "https://www.adidas.com.tr/tr/mercedes-amg-petronas-formula-1-team-dna-duz-si̇perli̇-sapka/KS8856.html?pr=product_rr&slot=16&rec=ds",
+  "https://www.adidas.com.tr/tr/adiracer-lo-mercedes-amg-petronas-f1-team-ayakkabi/KJ1188.html",
+  "https://www.adidas.com.tr/tr/adidas-3-stripes-bone/IA8306.html",
+  // Puma (Magento) — three colors, one on sale; sold-out sizes; a pinned ?beden.
+  "https://tr.puma.com/teamgoal-casuals-football-erkek-sweatshirt-658592-03.html",
+  "https://tr.puma.com/puma-club-light-unisex-ayakkabi-407329-01.html",
+  "https://tr.puma.com/puma-elements-unisex-corap-3-lu-paket-947108-01.html?beden=35-38",
   "https://www.victoriassecret.com.tr/victoria-s-secret-saten-dantel-detayli-askili-bluz-ve-firfirli-sort-takimi-VS27291321",
   "https://www.boyner.com.tr/nike-if2070-084-m-nk-df-miler-7bf-short-gri-erkek-sort-p-15937651",
   "https://www.boyner.com.tr/fn3868-010-nk-club-bb-po-gfx-hood-siyah-erkek-kapuson-regular-fit-baskili-sweatshirt-p-15605818",
