@@ -96,7 +96,6 @@ test("adidasProduct lists the other colors, each its own page", async () => {
   assert.deepEqual(white, {
     color: "Cloud White",
     url: `${ORIGIN}/tr/adiracer-lo-ayakkabi/KJ1187.html`,
-    imageUrl: "https://assets.adidas.com/b.jpg",
     price: 4679,
   });
   assert.equal(black.price, 3149);

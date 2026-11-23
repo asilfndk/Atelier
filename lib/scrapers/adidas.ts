@@ -16,7 +16,6 @@ interface AdidasProduct {
     type?: string;
     productId?: string;
     url?: string;
-    image?: string;
     default_color?: string;
     search_color?: string;
     pricing_information?: { sale_price?: number; standard_price?: number };
@@ -71,14 +70,14 @@ export async function adidasProduct(
     : availability?.availability_status === "IN_STOCK";
   const color = String(product.attribute_list?.color ?? "").trim();
 
-  // Each color is its own product page; their sizes are fetched lazily.
+  // Each color is its own product page. No imageUrl: the panel lazily checks
+  // a color's URL only when its photo is missing, and that check brings its sizes.
   const others = (product.product_link_list ?? [])
     .filter((l) => l.type === "color-variation" && l.url)
     .map((l) => ({
       id: String(l.productId ?? ""),
       color: String(l.default_color || l.search_color || l.productId || ""),
       url: new URL(String(l.url), origin).href,
-      imageUrl: l.image ?? null,
       price:
         l.pricing_information?.sale_price ??
         l.pricing_information?.standard_price ??
